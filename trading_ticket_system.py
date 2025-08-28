@@ -117,9 +117,10 @@ class TicketPanelView(discord.ui.View):
             interaction.user: discord.PermissionOverwrite(
                 read_messages=True,
                 send_messages=False,
-                add_reactions=False,
+                add_reactions=True,
                 attach_files=False,
-                embed_links=False
+                embed_links=False,
+                use_application_commands=True
             ),
             guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_messages=True)
         }
@@ -159,13 +160,11 @@ class TicketOptionsView(discord.ui.View):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
         
-        await interaction.response.defer()
-        
         # Create selling embed
         selling_embed = await self.ticket_system.create_selling_embed(interaction.user)
         
         # Update the message with selling embed and remove buttons
-        await interaction.edit_original_response(embed=selling_embed, view=None)
+        await interaction.response.edit_message(embed=selling_embed, view=None)
         
         # Notify support team
         support_roles = self.ticket_system.get_support_roles(interaction.guild)
