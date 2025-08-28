@@ -1,1 +1,18 @@
-{}
+{
+  "Torpedo (Vehicle)": {
+    "Cash Value": "48 000 000",
+    "Duped Value": "42 500 000",
+    "Type": "Vehicle",
+    "Demand": "Decent",
+    "quantity": 1,
+    "status": "Clean"
+  },
+  "Steamer (Horn)": {
+    "Cash Value": "N/A",
+    "Duped Value": "N/A",
+    "Type": "Horn",
+    "Demand": "Unknown",
+    "quantity": 1,
+    "status": "Clean"
+  }
+}
