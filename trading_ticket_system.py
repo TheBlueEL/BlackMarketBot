@@ -91,21 +91,22 @@ class TradingTicketSystem:
         if not items_list:
             embed.description = "Please select which items you wish to sell."
         else:
-            # Group items by name and status
+            # Group items by name and type, keeping status for calculations
             grouped_items = {}
             total_value = 0
             
             for item in items_list:
-                key = f"{item['name']} ({item['status']})"
+                key = f"{item['name']} ({item['type']})"
                 if key not in grouped_items:
-                    grouped_items[key] = {'quantity': 0, 'total_value': 0}
+                    grouped_items[key] = {'quantity': 0, 'total_value': 0, 'status': item['status']}
                 
                 grouped_items[key]['quantity'] += item['quantity']
                 grouped_items[key]['total_value'] += item['value'] * item['quantity']
                 total_value += item['value'] * item['quantity']
             
-            # Calculate Robux rate based on total value
-            robux_rate = self.calculate_robux_rate(total_value)
+            # Calculate Robux rate based on total value in millions
+            total_millions = total_value / 1_000_000
+            robux_rate = self.calculate_robux_rate(total_millions)
             
             # Create column headers
             items_column = []
@@ -123,7 +124,6 @@ class TradingTicketSystem:
                 prices_column.append(f"{robux_price:,} Robux")
             
             # Add total row
-            total_millions = total_value / 1_000_000
             total_robux = int(total_millions * robux_rate)
             
             items_column.append("**TOTAL**")
@@ -154,14 +154,26 @@ class TradingTicketSystem:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
 
-    def calculate_robux_rate(self, total_value):
-        """Calculate Robux rate based on total value"""
-        if total_value < 150_000_000:
+    def calculate_robux_rate(self, total_millions):
+        """Calculate Robux rate based on total value in millions"""
+        if total_millions < 150:
             return 80  # 80 robux per million
-        elif total_value < 300_000_000:
+        elif total_millions < 300:
             return 85  # 85 robux per million
         else:
             return 90  # 90 robux per million
+
+    async def create_error_embed(self, title, description):
+        """Create error embed for various error messages"""
+        embed = discord.Embed(
+            title=title,
+            description=description,
+            color=0xff0000
+        )
+        embed.set_footer(text=f"{self.bot.user.name} - Trading Department")
+        if self.bot.user.avatar:
+            embed.set_thumbnail(url=self.bot.user.avatar.url)
+        return embed
 
 class TicketPanelView(discord.ui.View):
     def __init__(self, ticket_system):
@@ -289,6 +301,17 @@ class SellingFormView(discord.ui.View):
         
         modal = ItemModal(self, "remove")
         await interaction.response.send_modal(modal)
+    
+    @discord.ui.button(label='Back', style=discord.ButtonStyle.secondary, emoji='⬅️')
+    async def back_to_options(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
+            return
+        
+        # Go back to ticket options
+        options_embed = await self.ticket_system.create_ticket_options_embed(interaction.user)
+        view = TicketOptionsView(self.ticket_system, self.user_id)
+        await interaction.response.edit_message(embed=options_embed, view=view)
 
 class ItemModal(discord.ui.Modal):
     def __init__(self, parent_view, action):
@@ -329,36 +352,67 @@ class ItemModal(discord.ui.Modal):
         # Validate status
         status = self.status.value.strip().lower()
         if status not in ['dupe', 'clean']:
-            await interaction.followup.send("❌ Status must be either 'Dupe' or 'Clean'!", ephemeral=True)
+            error_embed = await self.parent_view.ticket_system.create_error_embed(
+                "Invalid Status",
+                "Status must be either 'Dupe' or 'Clean'!"
+            )
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
         
         # Validate quantity
         try:
             quantity = int(self.quantity.value.strip()) if self.quantity.value.strip() else 1
             if quantity <= 0:
-                await interaction.followup.send("❌ Quantity must be a positive number!", ephemeral=True)
+                error_embed = await self.parent_view.ticket_system.create_error_embed(
+                    "Invalid Quantity",
+                    "Quantity must be a positive number!"
+                )
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
                 return
         except ValueError:
-            await interaction.followup.send("❌ Quantity must be a valid number!", ephemeral=True)
+            error_embed = await self.parent_view.ticket_system.create_error_embed(
+                "Invalid Quantity",
+                "Quantity must be a valid number!"
+            )
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
         
-        # Use le vrai système de stockage
+        # Use the real stockage system
         stockage_system = StockageSystem()
         
-        # Trouver l'item comme dans /add_stock
+        # Find the item like in /add_stock
         best_match, duplicates = stockage_system.find_best_match(self.item_name.value.strip(), "None")
         
         if not best_match:
-            await interaction.followup.send(f"❌ Item '{self.item_name.value}' not found in database!", ephemeral=True)
+            error_embed = await self.parent_view.ticket_system.create_error_embed(
+                "Item Not Found",
+                f"Item '{self.item_name.value}' not found in database!"
+            )
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
         
         if len(duplicates) > 1:
-            await interaction.followup.send(f"❌ Multiple items found for '{self.item_name.value}'. Please be more specific with the type!", ephemeral=True)
+            error_embed = await self.parent_view.ticket_system.create_error_embed(
+                "Multiple Items Found",
+                f"Multiple items found for '{self.item_name.value}'. Please be more specific with the type!"
+            )
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
         
         item_name, item_data = best_match[0], best_match[1]
         
-        # Obtenir la valeur selon le statut
+        # Check if item is obtainable
+        clean_item_name = item_name.split('(')[0].strip()
+        obtainable_items = self.parent_view.ticket_system.data.get('obtainable', [])
+        if clean_item_name in obtainable_items:
+            error_embed = await self.parent_view.ticket_system.create_error_embed(
+                "Item Information",
+                "This item cannot be added because it is worth less than 2.5M or it is obtainable."
+            )
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
+            return
+        
+        # Get value based on status
         if status == "clean":
             value_key = 'Cash Value'
         else:  # dupe
@@ -367,33 +421,55 @@ class ItemModal(discord.ui.Modal):
         value_str = item_data.get(value_key, 'N/A')
         
         if value_str == 'N/A' or not value_str or value_str == "N/A":
-            await interaction.followup.send(f"❌ No {status} value available for '{item_name}'!", ephemeral=True)
+            error_embed = await self.parent_view.ticket_system.create_error_embed(
+                "Value Not Available",
+                f"No {status} value available for '{item_name}'!"
+            )
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
         
-        # Convertir la valeur en nombre (gérer le format "48 000 000" avec espaces normaux et Unicode)
+        # Convert value to number (handle format "48 000 000" with normal and Unicode spaces)
         try:
             if isinstance(value_str, str):
-                # Enlever tous les types d'espaces (normaux, Unicode, etc.) et virgules
+                # Remove all types of spaces (normal, Unicode, etc.) and commas
                 import re
                 clean_value_str = re.sub(r'[\s,]+', '', value_str)
                 value = int(clean_value_str)
             elif isinstance(value_str, (int, float)):
                 value = int(value_str)
             else:
-                raise ValueError(f"Type de valeur non supporté: {type(value_str)}")
+                raise ValueError(f"Unsupported value type: {type(value_str)}")
         except (ValueError, TypeError) as e:
-            await interaction.followup.send(f"❌ Invalid {status} value for '{item_name}': {value_str} (Error: {str(e)})", ephemeral=True)
+            error_embed = await self.parent_view.ticket_system.create_error_embed(
+                "Invalid Value",
+                f"Invalid {status} value for '{item_name}': {value_str}"
+            )
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
         
-        # Nettoyer le nom de l'item (enlever le type entre parenthèses)
+        # Check if item is worth less than 2.5M
+        if value < 2_500_000:
+            error_embed = await self.parent_view.ticket_system.create_error_embed(
+                "Item Information",
+                "This item cannot be added because it is worth less than 2.5M or it is obtainable."
+            )
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
+            return
+        
+        # Clean item name (remove type in parentheses for grouping)
         import re
         clean_name = re.sub(r'\s*\([^)]*\)$', '', item_name).strip()
+        
+        # Get item type from the full name
+        type_match = re.search(r'\(([^)]*)\)', item_name)
+        item_type = type_match.group(1) if type_match else "Unknown"
         
         item_entry = {
             'name': clean_name,
             'quantity': quantity,
             'status': status.capitalize(),
-            'value': value
+            'value': value,
+            'type': item_type
         }
         
         if self.action == "add":
@@ -404,7 +480,8 @@ class ItemModal(discord.ui.Modal):
             removed = False
             for i, existing_item in enumerate(self.parent_view.items_list):
                 if (existing_item['name'] == item_entry['name'] and 
-                    existing_item['status'] == item_entry['status']):
+                    existing_item['status'] == item_entry['status'] and
+                    existing_item['type'] == item_entry['type']):
                     if existing_item['quantity'] > quantity:
                         existing_item['quantity'] -= quantity
                         removed = True
@@ -414,11 +491,19 @@ class ItemModal(discord.ui.Modal):
                         removed = True
                         break
                     else:
-                        await interaction.followup.send(f"❌ Cannot remove {quantity} items. Only {existing_item['quantity']} available!", ephemeral=True)
+                        error_embed = await self.parent_view.ticket_system.create_error_embed(
+                            "Insufficient Quantity",
+                            f"Cannot remove {quantity} items. Only {existing_item['quantity']} available!"
+                        )
+                        await interaction.followup.send(embed=error_embed, ephemeral=True)
                         return
             
             if not removed:
-                await interaction.followup.send(f"❌ Item '{item_entry['name']}' ({status}) not found in your list!", ephemeral=True)
+                error_embed = await self.parent_view.ticket_system.create_error_embed(
+                    "Item Information",
+                    "This item cannot be removed because it has not been added to your list."
+                )
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
                 return
             
             action_text = "removed from"
@@ -430,7 +515,13 @@ class ItemModal(discord.ui.Modal):
         )
         
         await interaction.edit_original_response(embed=new_embed, view=self.parent_view)
-        await interaction.followup.send(f"✅ {item_entry['name']} x{quantity} ({status}) {action_text} your selling list!", ephemeral=True)
+        
+        success_embed = await self.parent_view.ticket_system.create_error_embed(
+            "Success",
+            f"✅ {item_entry['name']} x{quantity} ({status.capitalize()}) {action_text} your selling list!"
+        )
+        success_embed.color = 0x00ff00  # Green color for success
+        await interaction.followup.send(embed=success_embed, ephemeral=True)
 
 # Import du vrai système de stockage
 import sys
