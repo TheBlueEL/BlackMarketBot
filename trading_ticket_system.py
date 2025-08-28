@@ -73,13 +73,71 @@ class TradingTicketSystem:
         """Create the selling ticket embed"""
         embed = discord.Embed(
             title="💰 Selling Ticket",
-            description=f"Perfect choice, {user.mention}!\n\nPlease add all the items you wish to sell below. Our team will review your items and get back to you with the best offers.\n\nMake sure to list items worth **2.5M+** for the best trading experience!",
+            description="Please select which items you wish to sell.",
             color=0xff6b35
         )
-        embed.set_footer(text=f"{self.bot.user.name} - Selling Department")
+        embed.set_footer(text=f"{self.bot.user.name} - Trading Department")
         if self.bot.user.avatar:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
+
+    async def create_selling_list_embed(self, user, items_list):
+        """Create the selling list embed with items"""
+        embed = discord.Embed(
+            title="💰 Selling Ticket",
+            color=0xff6b35
+        )
+        
+        if not items_list:
+            embed.description = "Please select which items you wish to sell."
+        else:
+            # Group items by name (combining dupe and clean)
+            grouped_items = {}
+            total_value = 0
+            
+            for item in items_list:
+                item_name = item['name']
+                if item_name not in grouped_items:
+                    grouped_items[item_name] = {'quantity': 0, 'total_value': 0}
+                
+                grouped_items[item_name]['quantity'] += item['quantity']
+                grouped_items[item_name]['total_value'] += item['value'] * item['quantity']
+                total_value += item['value'] * item['quantity']
+            
+            # Calculate Robux rate based on total value
+            robux_rate = self.calculate_robux_rate(total_value)
+            
+            # Create the table
+            description = f"```\n{'Item':<50} {'Quantity':<10} {'Price':<15}\n{'-' * 75}\n"
+            
+            for item_name, data in grouped_items.items():
+                quantity = data['quantity']
+                value_millions = data['total_value'] / 1_000_000
+                robux_price = int(value_millions * robux_rate)
+                
+                description += f"{item_name:<50} {quantity:<10} {robux_price:,} Robux\n"
+            
+            total_millions = total_value / 1_000_000
+            total_robux = int(total_millions * robux_rate)
+            description += f"{'-' * 75}\n"
+            description += f"{'TOTAL':<50} {'':<10} {total_robux:,} Robux\n"
+            description += "```"
+            
+            embed.description = description
+        
+        embed.set_footer(text=f"{self.bot.user.name} - Trading Department")
+        if self.bot.user.avatar:
+            embed.set_thumbnail(url=self.bot.user.avatar.url)
+        return embed
+
+    def calculate_robux_rate(self, total_value):
+        """Calculate Robux rate based on total value"""
+        if total_value < 150_000_000:
+            return 80  # 80 robux per million
+        elif total_value < 300_000_000:
+            return 85  # 85 robux per million
+        else:
+            return 90  # 90 robux per million
 
 class TicketPanelView(discord.ui.View):
     def __init__(self, ticket_system):
@@ -163,8 +221,11 @@ class TicketOptionsView(discord.ui.View):
         # Create selling embed
         selling_embed = await self.ticket_system.create_selling_embed(interaction.user)
         
-        # Update the message with selling embed and remove buttons
-        await interaction.response.edit_message(embed=selling_embed, view=None)
+        # Create selling form view
+        selling_view = SellingFormView(self.ticket_system, self.user_id)
+        
+        # Update the message with selling embed and form buttons
+        await interaction.response.edit_message(embed=selling_embed, view=selling_view)
         
         # Notify support team
         support_roles = self.ticket_system.get_support_roles(interaction.guild)
@@ -179,6 +240,205 @@ class TicketOptionsView(discord.ui.View):
             return
         
         await interaction.response.send_message("Buying option will be implemented soon! Please choose Selling for now.", ephemeral=True)
+
+class SellingFormView(discord.ui.View):
+    def __init__(self, ticket_system, user_id):
+        super().__init__(timeout=None)
+        self.ticket_system = ticket_system
+        self.user_id = user_id
+        self.items_list = []
+    
+    @discord.ui.button(label='Add Item', style=discord.ButtonStyle.success, emoji='➕')
+    async def add_item(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
+            return
+        
+        modal = ItemModal(self, "add")
+        await interaction.response.send_modal(modal)
+    
+    @discord.ui.button(label='Remove Item', style=discord.ButtonStyle.danger, emoji='➖')
+    async def remove_item(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
+            return
+        
+        modal = ItemModal(self, "remove")
+        await interaction.response.send_modal(modal)
+
+class ItemModal(discord.ui.Modal):
+    def __init__(self, parent_view, action):
+        self.parent_view = parent_view
+        self.action = action
+        title = "Add Item" if action == "add" else "Remove Item"
+        super().__init__(title=title)
+        
+        self.item_name = discord.ui.TextInput(
+            label="Item Name",
+            placeholder="Enter the item name...",
+            required=True,
+            max_length=100
+        )
+        
+        self.quantity = discord.ui.TextInput(
+            label="Quantity",
+            placeholder="1",
+            required=False,
+            default="1",
+            max_length=10
+        )
+        
+        self.status = discord.ui.TextInput(
+            label="Status",
+            placeholder="Dupe or Clean",
+            required=True,
+            max_length=10
+        )
+        
+        self.add_item(self.item_name)
+        self.add_item(self.quantity)
+        self.add_item(self.status)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        
+        # Validate status
+        status = self.status.value.strip().lower()
+        if status not in ['dupe', 'clean']:
+            await interaction.followup.send("❌ Status must be either 'Dupe' or 'Clean'!", ephemeral=True)
+            return
+        
+        # Validate quantity
+        try:
+            quantity = int(self.quantity.value.strip()) if self.quantity.value.strip() else 1
+            if quantity <= 0:
+                await interaction.followup.send("❌ Quantity must be a positive number!", ephemeral=True)
+                return
+        except ValueError:
+            await interaction.followup.send("❌ Quantity must be a valid number!", ephemeral=True)
+            return
+        
+        # Use stockage system to find the item
+        stockage_system = StockageSystemIntegration()
+        item_data, found = stockage_system.find_item(self.item_name.value.strip())
+        
+        if not found:
+            await interaction.followup.send(f"❌ Item '{self.item_name.value}' not found in database!", ephemeral=True)
+            return
+        
+        # Get the value based on status
+        value = stockage_system.get_item_value(item_data, status)
+        
+        if value == 0:
+            await interaction.followup.send(f"❌ No {status} value available for '{self.item_name.value}'!", ephemeral=True)
+            return
+        
+        item_entry = {
+            'name': stockage_system.get_clean_item_name(item_data['name']),
+            'quantity': quantity,
+            'status': status.capitalize(),
+            'value': value
+        }
+        
+        if self.action == "add":
+            self.parent_view.items_list.append(item_entry)
+            action_text = "added to"
+        else:  # remove
+            # Find and remove the item
+            removed = False
+            for i, existing_item in enumerate(self.parent_view.items_list):
+                if (existing_item['name'] == item_entry['name'] and 
+                    existing_item['status'] == item_entry['status']):
+                    if existing_item['quantity'] > quantity:
+                        existing_item['quantity'] -= quantity
+                        removed = True
+                        break
+                    elif existing_item['quantity'] == quantity:
+                        self.parent_view.items_list.pop(i)
+                        removed = True
+                        break
+                    else:
+                        await interaction.followup.send(f"❌ Cannot remove {quantity} items. Only {existing_item['quantity']} available!", ephemeral=True)
+                        return
+            
+            if not removed:
+                await interaction.followup.send(f"❌ Item '{item_entry['name']}' ({status}) not found in your list!", ephemeral=True)
+                return
+            
+            action_text = "removed from"
+        
+        # Update the embed
+        new_embed = await self.parent_view.ticket_system.create_selling_list_embed(
+            interaction.user, 
+            self.parent_view.items_list
+        )
+        
+        await interaction.edit_original_response(embed=new_embed, view=self.parent_view)
+        await interaction.followup.send(f"✅ {item_entry['name']} x{quantity} ({status}) {action_text} your selling list!", ephemeral=True)
+
+class StockageSystemIntegration:
+    def __init__(self):
+        self.load_api_data()
+    
+    def load_api_data(self):
+        """Load API data from JSON file"""
+        try:
+            import json
+            with open('API_JBChangeLogs.json', 'r', encoding='utf-8') as f:
+                self.api_data = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.api_data = {}
+    
+    def find_item(self, search_text):
+        """Find item using similar logic as stockage_system.py"""
+        import re
+        from difflib import SequenceMatcher
+        
+        # Clean the search text
+        clean_search = re.sub(r'\([^)]*\)', '', search_text).strip()
+        
+        best_match = None
+        best_score = 0
+        
+        for item_name in self.api_data.keys():
+            clean_item_name = re.sub(r'\([^)]*\)', '', item_name).strip()
+            
+            # Calculate similarity
+            similarity = SequenceMatcher(None, clean_search.lower(), clean_item_name.lower()).ratio()
+            
+            if similarity > best_score and similarity > 0.6:  # Minimum 60% similarity
+                best_score = similarity
+                best_match = {'name': item_name, 'data': self.api_data[item_name]}
+        
+        return best_match, best_match is not None
+    
+    def get_item_value(self, item_data, status):
+        """Get item value based on status"""
+        data = item_data['data']
+        
+        if status == "clean":
+            value_str = data.get('Cash Value', '0')
+        else:  # dupe
+            value_str = data.get('Duped Value', '0')
+        
+        if value_str == "N/A" or not value_str:
+            return 0
+        
+        # Convert value string to number
+        try:
+            # Remove commas and convert to int
+            if isinstance(value_str, str):
+                value_str = value_str.replace(',', '').replace(' ', '')
+                return int(value_str)
+            else:
+                return int(value_str)
+        except (ValueError, TypeError):
+            return 0
+    
+    def get_clean_item_name(self, item_name):
+        """Get clean item name without type in parentheses"""
+        import re
+        return re.sub(r'\s*\([^)]*\)$', '', item_name).strip()
 
 def setup_trading_ticket_system(bot):
     """Setup function to integrate trading ticket system with the bot"""
