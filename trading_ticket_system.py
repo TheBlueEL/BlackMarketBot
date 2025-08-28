@@ -91,39 +91,42 @@ class TradingTicketSystem:
         if not items_list:
             embed.description = "Please select which items you wish to sell."
         else:
-            # Group items by name (combining dupe and clean)
+            # Group items by name and status
             grouped_items = {}
             total_value = 0
             
             for item in items_list:
-                item_name = item['name']
-                if item_name not in grouped_items:
-                    grouped_items[item_name] = {'quantity': 0, 'total_value': 0}
+                key = f"{item['name']} ({item['status']})"
+                if key not in grouped_items:
+                    grouped_items[key] = {'quantity': 0, 'total_value': 0}
                 
-                grouped_items[item_name]['quantity'] += item['quantity']
-                grouped_items[item_name]['total_value'] += item['value'] * item['quantity']
+                grouped_items[key]['quantity'] += item['quantity']
+                grouped_items[key]['total_value'] += item['value'] * item['quantity']
                 total_value += item['value'] * item['quantity']
             
             # Calculate Robux rate based on total value
             robux_rate = self.calculate_robux_rate(total_value)
             
-            # Create the table
-            description = f"```\n{'Item':<50} {'Quantity':<10} {'Price':<15}\n{'-' * 75}\n"
-            
+            # Add items as fields
             for item_name, data in grouped_items.items():
                 quantity = data['quantity']
                 value_millions = data['total_value'] / 1_000_000
                 robux_price = int(value_millions * robux_rate)
                 
-                description += f"{item_name:<50} {quantity:<10} {robux_price:,} Robux\n"
+                embed.add_field(
+                    name=f"📦 {item_name}",
+                    value=f"**Quantity:** {quantity}\n**Price:** {robux_price:,} Robux",
+                    inline=True
+                )
             
+            # Add total as a separate field
             total_millions = total_value / 1_000_000
             total_robux = int(total_millions * robux_rate)
-            description += f"{'-' * 75}\n"
-            description += f"{'TOTAL':<50} {'':<10} {total_robux:,} Robux\n"
-            description += "```"
-            
-            embed.description = description
+            embed.add_field(
+                name="💰 TOTAL",
+                value=f"**Total Price:** {total_robux:,} Robux\n**Rate:** {robux_rate} Robux/M",
+                inline=False
+            )
         
         embed.set_footer(text=f"{self.bot.user.name} - Trading Department")
         if self.bot.user.avatar:
