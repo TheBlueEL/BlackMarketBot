@@ -168,7 +168,7 @@ class TradingTicketSystem:
         total_robux = int(total_millions * robux_rate)
         
         # Calculate tax (30%)
-        total_with_tax = int(total_robux * 1.3)
+        total_with_tax = int(total_robux * 0.70)
         
         # Create description with items summary
         description_lines = ["You wish to sell all these items:\n"]
