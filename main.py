@@ -6,6 +6,7 @@ import asyncio
 from API_JBChangeLogs import github_sync as api_github_sync
 from stockage_system import setup_stockage_system
 from github_sync import GitHubSync
+from trading_ticket_system import setup_trading_ticket_system
 
 # Load environment variables
 load_dotenv()
@@ -25,6 +26,10 @@ async def on_ready():
     # Configurer le système de stockage
     stockage_system = setup_stockage_system(bot)
     print("Stockage System loaded!")
+    
+    # Configurer le système de tickets de trading
+    trading_ticket_system = setup_trading_ticket_system(bot)
+    print("Trading Ticket System loaded!")
     
     # Démarrer la synchronisation GitHub
     asyncio.create_task(api_github_sync.start_monitoring())
