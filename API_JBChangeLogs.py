@@ -78,7 +78,6 @@ class GitHubSync:
             else:
                 print("Échec de la synchronisation initiale")
         else:
-            print("Fichier local déjà présent")
             # Récupérer le SHA actuel pour les vérifications futures
             _, sha = self.get_file_from_repo()
             self.last_sha = sha
