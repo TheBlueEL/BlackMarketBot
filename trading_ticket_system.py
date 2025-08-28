@@ -510,19 +510,22 @@ class StockageSystemIntegration:
         data = item_data['data']
         
         if status == "clean":
-            value_str = data.get('Cash Value', '0')
+            # Try new format first, then fallback to old format
+            value_str = data.get('Cash Value', data.get('cash_value', '0'))
         else:  # dupe
-            value_str = data.get('Duped Value', '0')
+            # Try new format first, then fallback to old format
+            value_str = data.get('Duped Value', data.get('duped_value', '0'))
         
-        if value_str == "N/A" or not value_str:
+        if value_str == "N/A" or not value_str or value_str == 0:
             return 0
         
         # Convert value string to number
         try:
-            # Remove commas and convert to int
+            # Remove commas, spaces and convert to int
             if isinstance(value_str, str):
-                value_str = value_str.replace(',', '').replace(' ', '')
-                return int(value_str)
+                # Handle values like "48,000,000" or "48 000 000"
+                clean_value = value_str.replace(',', '').replace(' ', '')
+                return int(clean_value)
             else:
                 return int(value_str)
         except (ValueError, TypeError):
