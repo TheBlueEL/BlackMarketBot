@@ -342,20 +342,22 @@ class ItemModal(discord.ui.Modal):
         
         value_str = item_data.get(value_key, 'N/A')
         
-        if value_str == 'N/A' or not value_str:
+        if value_str == 'N/A' or not value_str or value_str == "N/A":
             await interaction.followup.send(f"❌ No {status} value available for '{item_name}'!", ephemeral=True)
             return
         
-        # Convertir la valeur en nombre
+        # Convertir la valeur en nombre (gérer le format "48 000 000")
         try:
             if isinstance(value_str, str):
-                # Gérer les valeurs comme "48,000,000" ou "48 000 000"
-                clean_value_str = value_str.replace(',', '').replace(' ', '')
+                # Enlever tous les espaces et convertir en entier
+                clean_value_str = value_str.replace(' ', '').replace(',', '')
                 value = int(clean_value_str)
-            else:
+            elif isinstance(value_str, (int, float)):
                 value = int(value_str)
-        except (ValueError, TypeError):
-            await interaction.followup.send(f"❌ Invalid {status} value for '{item_name}'!", ephemeral=True)
+            else:
+                raise ValueError(f"Type de valeur non supporté: {type(value_str)}")
+        except (ValueError, TypeError) as e:
+            await interaction.followup.send(f"❌ Invalid {status} value for '{item_name}': {value_str} (Error: {str(e)})", ephemeral=True)
             return
         
         # Nettoyer le nom de l'item (enlever le type entre parenthèses)
