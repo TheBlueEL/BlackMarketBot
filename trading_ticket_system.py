@@ -230,7 +230,7 @@ class TradingTicketSystem:
         """Create embed showing gamepass creation link"""
         embed = discord.Embed(
             title="<:SellingLOGO:1410730163607437344> Selling Ticket",
-            description=f"Please use this link to create your GamePass:\n\n{experience_url}",
+            description=f"Please use this link to create your GamePass:\n\n [{user}'s GamePass]({experience_url})",
             color=0x00ff00
         )
         embed.set_footer(text=f"{self.bot.user.name} - Trading Department")
