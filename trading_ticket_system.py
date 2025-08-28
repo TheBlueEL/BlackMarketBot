@@ -380,7 +380,7 @@ class SellingFormView(discord.ui.View):
             emoji='<:CreateLOGO:1390385790726570130>', 
             custom_id='selling_add_item'
         )
-        add_button.callback = self.add_item
+        add_button.callback = self.handle_add_item
         self.add_item(add_button)
         
         # Show Remove Item button only if there are items
@@ -391,7 +391,7 @@ class SellingFormView(discord.ui.View):
                 emoji='<:RemoveLOGO:1410726980114190386>', 
                 custom_id='selling_remove_item'
             )
-            remove_button.callback = self.remove_item
+            remove_button.callback = self.handle_remove_item
             self.add_item(remove_button)
             
             # Show Next button if there are items
@@ -401,7 +401,7 @@ class SellingFormView(discord.ui.View):
                 emoji='➡️', 
                 custom_id='selling_next'
             )
-            next_button.callback = self.next_to_payment
+            next_button.callback = self.handle_next_to_payment
             self.add_item(next_button)
         
         # Always show Back button
@@ -411,13 +411,10 @@ class SellingFormView(discord.ui.View):
             emoji='<:BackLOGO:1410726662328422410>', 
             custom_id='selling_back'
         )
-        back_button.callback = self.back_to_options
+        back_button.callback = self.handle_back_to_options
         self.add_item(back_button)
 
-    async def add_item(self, interaction: discord.Interaction, button: discord.ui.Button = None):
-        if button is None:  # Called from update_buttons
-            return
-            
+    async def handle_add_item(self, interaction: discord.Interaction):
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
@@ -425,10 +422,7 @@ class SellingFormView(discord.ui.View):
         modal = ItemModal(self, "add")
         await interaction.response.send_modal(modal)
 
-    async def remove_item(self, interaction: discord.Interaction, button: discord.ui.Button = None):
-        if button is None:  # Called from update_buttons
-            return
-            
+    async def handle_remove_item(self, interaction: discord.Interaction):
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
@@ -436,10 +430,7 @@ class SellingFormView(discord.ui.View):
         modal = ItemModal(self, "remove")
         await interaction.response.send_modal(modal)
 
-    async def next_to_payment(self, interaction: discord.Interaction, button: discord.ui.Button = None):
-        if button is None:  # Called from update_buttons
-            return
-            
+    async def handle_next_to_payment(self, interaction: discord.Interaction):
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
@@ -449,10 +440,7 @@ class SellingFormView(discord.ui.View):
         view = PaymentMethodView(self.ticket_system, self.user_id, self.items_list)
         await interaction.response.edit_message(embed=payment_embed, view=view)
 
-    async def back_to_options(self, interaction: discord.Interaction, button: discord.ui.Button = None):
-        if button is None:  # Called from update_buttons
-            return
-            
+    async def handle_back_to_options(self, interaction: discord.Interaction):
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
