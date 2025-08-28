@@ -346,11 +346,12 @@ class ItemModal(discord.ui.Modal):
             await interaction.followup.send(f"❌ No {status} value available for '{item_name}'!", ephemeral=True)
             return
         
-        # Convertir la valeur en nombre (gérer le format "48 000 000")
+        # Convertir la valeur en nombre (gérer le format "48 000 000" avec espaces normaux et Unicode)
         try:
             if isinstance(value_str, str):
-                # Enlever tous les espaces et convertir en entier
-                clean_value_str = value_str.replace(' ', '').replace(',', '')
+                # Enlever tous les types d'espaces (normaux, Unicode, etc.) et virgules
+                import re
+                clean_value_str = re.sub(r'[\s,]+', '', value_str)
                 value = int(clean_value_str)
             elif isinstance(value_str, (int, float)):
                 value = int(value_str)
