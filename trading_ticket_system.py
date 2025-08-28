@@ -107,25 +107,46 @@ class TradingTicketSystem:
             # Calculate Robux rate based on total value
             robux_rate = self.calculate_robux_rate(total_value)
             
-            # Add items as fields
+            # Create column headers
+            items_column = []
+            quantities_column = []
+            prices_column = []
+            
+            # Add each item to the columns
             for item_name, data in grouped_items.items():
                 quantity = data['quantity']
                 value_millions = data['total_value'] / 1_000_000
                 robux_price = int(value_millions * robux_rate)
                 
-                embed.add_field(
-                    name=f"📦 {item_name}",
-                    value=f"**Quantity:** {quantity}\n**Price:** {robux_price:,} Robux",
-                    inline=True
-                )
+                items_column.append(item_name)
+                quantities_column.append(str(quantity))
+                prices_column.append(f"{robux_price:,} Robux")
             
-            # Add total as a separate field
+            # Add total row
             total_millions = total_value / 1_000_000
             total_robux = int(total_millions * robux_rate)
+            
+            items_column.append("**TOTAL**")
+            quantities_column.append("---")
+            prices_column.append(f"**{total_robux:,} Robux**")
+            
+            # Create the three fields as columns
             embed.add_field(
-                name="💰 TOTAL",
-                value=f"**Total Price:** {total_robux:,} Robux\n**Rate:** {robux_rate} Robux/M",
-                inline=False
+                name="Item",
+                value="\n".join(items_column),
+                inline=True
+            )
+            
+            embed.add_field(
+                name="Quantity",
+                value="\n".join(quantities_column),
+                inline=True
+            )
+            
+            embed.add_field(
+                name="Price",
+                value="\n".join(prices_column),
+                inline=True
             )
         
         embed.set_footer(text=f"{self.bot.user.name} - Trading Department")
