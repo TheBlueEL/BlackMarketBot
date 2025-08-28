@@ -24,11 +24,10 @@ async def on_ready():
     
     # Configurer le système de stockage
     stockage_system = setup_stockage_system(bot)
-    print("Stockage system setup completed")
+    print("Stockage System loaded!")
     
     # Démarrer la synchronisation GitHub
     asyncio.create_task(api_github_sync.start_monitoring())
-    print("GitHub sync started")
 
     # Sync slash commands
     try:
