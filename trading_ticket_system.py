@@ -318,23 +318,48 @@ class ItemModal(discord.ui.Modal):
             await interaction.followup.send("❌ Quantity must be a valid number!", ephemeral=True)
             return
         
-        # Use stockage system to find the item
-        stockage_system = StockageSystemIntegration()
-        item_data, found = stockage_system.find_item(self.item_name.value.strip())
+        # Use le vrai système de stockage
+        stockage_system = StockageSystem()
         
-        if not found:
+        # Trouver l'item exact comme dans /add_stock
+        item_info = stockage_system.find_item_exact_match(self.item_name.value.strip())
+        
+        if not item_info:
             await interaction.followup.send(f"❌ Item '{self.item_name.value}' not found in database!", ephemeral=True)
             return
         
-        # Get the value based on status
-        value = stockage_system.get_item_value(item_data, status)
+        item_name, item_data = item_info
         
-        if value == 0:
-            await interaction.followup.send(f"❌ No {status} value available for '{self.item_name.value}'!", ephemeral=True)
+        # Obtenir la valeur selon le statut
+        if status == "clean":
+            value_key = 'Cash Value'
+        else:  # dupe
+            value_key = 'Duped Value'
+        
+        value_str = item_data.get(value_key, 'N/A')
+        
+        if value_str == 'N/A' or not value_str:
+            await interaction.followup.send(f"❌ No {status} value available for '{item_name}'!", ephemeral=True)
             return
         
+        # Convertir la valeur en nombre
+        try:
+            if isinstance(value_str, str):
+                # Gérer les valeurs comme "48,000,000" ou "48 000 000"
+                clean_value_str = value_str.replace(',', '').replace(' ', '')
+                value = int(clean_value_str)
+            else:
+                value = int(value_str)
+        except (ValueError, TypeError):
+            await interaction.followup.send(f"❌ Invalid {status} value for '{item_name}'!", ephemeral=True)
+            return
+        
+        # Nettoyer le nom de l'item (enlever le type entre parenthèses)
+        import re
+        clean_name = re.sub(r'\s*\([^)]*\)$', '', item_name).strip()
+        
         item_entry = {
-            'name': stockage_system.get_clean_item_name(item_data['name']),
+            'name': clean_name,
             'quantity': quantity,
             'status': status.capitalize(),
             'value': value
@@ -376,165 +401,11 @@ class ItemModal(discord.ui.Modal):
         await interaction.edit_original_response(embed=new_embed, view=self.parent_view)
         await interaction.followup.send(f"✅ {item_entry['name']} x{quantity} ({status}) {action_text} your selling list!", ephemeral=True)
 
-class StockageSystemIntegration:
-    def __init__(self):
-        self.load_api_data()
-    
-    def load_api_data(self):
-        """Load API data from JSON file"""
-        try:
-            import json
-            with open('API_JBChangeLogs.json', 'r', encoding='utf-8') as f:
-                self.api_data = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            self.api_data = {}
-    
-    def character_similarity(self, text1, text2):
-        """Calcule la similarité de caractères entre deux textes"""
-        text1_chars = set(text1.lower())
-        text2_chars = set(text2.lower())
-
-        if not text1_chars or not text2_chars:
-            return 0
-
-        intersection = text1_chars.intersection(text2_chars)
-        union = text1_chars.union(text2_chars)
-
-        return len(intersection) / len(union) if union else 0
-
-    def pattern_similarity(self, text1, text2, n=2):
-        """Calcule la similarité basée sur les patterns de n caractères"""
-        def get_patterns(text, n):
-            text = text.lower()
-            return [text[i:i+n] for i in range(len(text)-n+1)]
-
-        patterns1 = get_patterns(text1, n)
-        patterns2 = get_patterns(text2, n)
-
-        if not patterns1 or not patterns2:
-            return 0
-
-        # Calculer les patterns communs avec leur position
-        common_patterns = 0
-        consecutive_bonus = 0
-
-        for i, p1 in enumerate(patterns1):
-            for j, p2 in enumerate(patterns2):
-                if p1 == p2:
-                    common_patterns += 1
-                    # Bonus pour les patterns consécutifs
-                    if abs(i - j) <= 1:
-                        consecutive_bonus += 0.5
-
-        total_patterns = len(patterns1) + len(patterns2)
-        if total_patterns == 0:
-            return 0
-
-        base_score = (common_patterns * 2) / total_patterns
-        return min(1.0, base_score + (consecutive_bonus / total_patterns))
-
-    def basic_similarity(self, text1, text2):
-        """Calcule la similarité de base entre deux textes"""
-        from difflib import SequenceMatcher
-        return SequenceMatcher(None, text1.lower(), text2.lower()).ratio()
-    
-    def find_item(self, search_text):
-        """Find item using EXACT same logic as stockage_system.py"""
-        import re
-        
-        candidates = []
-        
-        # Collecter tous les candidats possibles
-        for item_name, item_data in self.api_data.items():
-            candidates.append((item_name, item_data, item_name))
-        
-        if not candidates:
-            return None, False
-        
-        # Nettoyer le nom de recherche (enlever les parenthèses de type)
-        clean_search = re.sub(r'\([^)]*\)', '', search_text).strip()
-        
-        # Calculer les scores pour chaque candidat
-        scored_candidates = []
-        for item_name, item_data, display_name in candidates:
-            clean_item_name = re.sub(r'\([^)]*\)', '', item_name).strip()
-            clean_display_name = re.sub(r'\([^)]*\)', '', display_name).strip()
-
-            # Utiliser le nom d'affichage pour la comparaison si disponible
-            comparison_name = clean_display_name if clean_display_name != clean_item_name else clean_item_name
-
-            # Filtrage par similarité de caractères (40% minimum)
-            char_similarity = self.character_similarity(clean_search, comparison_name)
-            if char_similarity < 0.4:
-                continue
-
-            # Scores multiples
-            basic_sim = self.basic_similarity(clean_search, comparison_name)
-            pattern2_sim = self.pattern_similarity(clean_search, comparison_name, 2)
-            pattern3_sim = self.pattern_similarity(clean_search, comparison_name, 3)
-
-            # Score combiné avec pondération
-            combined_score = (basic_sim * 0.4 + 
-                            pattern2_sim * 0.3 + 
-                            pattern3_sim * 0.3 +
-                            char_similarity * 0.1)
-
-            scored_candidates.append((item_name, item_data, combined_score, display_name))
-
-        if not scored_candidates:
-            return None, False
-
-        # Trier par score
-        scored_candidates.sort(key=lambda x: x[2], reverse=True)
-
-        # Vérifier s'il y a des doublons (même nom sans type)
-        best_item = scored_candidates[0]
-        best_clean_name = re.sub(r'\([^)]*\)', '', best_item[0]).strip()
-
-        duplicates = []
-        for item_name, item_data, score, display_name in scored_candidates[:10]:  # Limiter à 10 pour les performances
-            clean_name = re.sub(r'\([^)]*\)', '', item_name).strip()
-            if clean_name == best_clean_name and score > 0.3:
-                duplicates.append((item_name, item_data))
-
-        if len(duplicates) > 1:
-            return None, False  # Multiple matches found
-        
-        if best_item[2] > 0.3:
-            return {'name': best_item[0], 'data': best_item[1]}, True
-        
-        return None, False
-    
-    def get_item_value(self, item_data, status):
-        """Get item value based on status"""
-        data = item_data['data']
-        
-        if status == "clean":
-            # Try new format first, then fallback to old format
-            value_str = data.get('Cash Value', data.get('cash_value', '0'))
-        else:  # dupe
-            # Try new format first, then fallback to old format
-            value_str = data.get('Duped Value', data.get('duped_value', '0'))
-        
-        if value_str == "N/A" or not value_str or value_str == 0:
-            return 0
-        
-        # Convert value string to number
-        try:
-            # Remove commas, spaces and convert to int
-            if isinstance(value_str, str):
-                # Handle values like "48,000,000" or "48 000 000"
-                clean_value = value_str.replace(',', '').replace(' ', '')
-                return int(clean_value)
-            else:
-                return int(value_str)
-        except (ValueError, TypeError):
-            return 0
-    
-    def get_clean_item_name(self, item_name):
-        """Get clean item name without type in parentheses"""
-        import re
-        return re.sub(r'\s*\([^)]*\)$', '', item_name).strip()
+# Import du vrai système de stockage
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from stockage_system import StockageSystem
 
 def setup_trading_ticket_system(bot):
     """Setup function to integrate trading ticket system with the bot"""
