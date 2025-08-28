@@ -389,28 +389,121 @@ class StockageSystemIntegration:
         except (FileNotFoundError, json.JSONDecodeError):
             self.api_data = {}
     
-    def find_item(self, search_text):
-        """Find item using similar logic as stockage_system.py"""
-        import re
+    def character_similarity(self, text1, text2):
+        """Calcule la similarité de caractères entre deux textes"""
+        text1_chars = set(text1.lower())
+        text2_chars = set(text2.lower())
+
+        if not text1_chars or not text2_chars:
+            return 0
+
+        intersection = text1_chars.intersection(text2_chars)
+        union = text1_chars.union(text2_chars)
+
+        return len(intersection) / len(union) if union else 0
+
+    def pattern_similarity(self, text1, text2, n=2):
+        """Calcule la similarité basée sur les patterns de n caractères"""
+        def get_patterns(text, n):
+            text = text.lower()
+            return [text[i:i+n] for i in range(len(text)-n+1)]
+
+        patterns1 = get_patterns(text1, n)
+        patterns2 = get_patterns(text2, n)
+
+        if not patterns1 or not patterns2:
+            return 0
+
+        # Calculer les patterns communs avec leur position
+        common_patterns = 0
+        consecutive_bonus = 0
+
+        for i, p1 in enumerate(patterns1):
+            for j, p2 in enumerate(patterns2):
+                if p1 == p2:
+                    common_patterns += 1
+                    # Bonus pour les patterns consécutifs
+                    if abs(i - j) <= 1:
+                        consecutive_bonus += 0.5
+
+        total_patterns = len(patterns1) + len(patterns2)
+        if total_patterns == 0:
+            return 0
+
+        base_score = (common_patterns * 2) / total_patterns
+        return min(1.0, base_score + (consecutive_bonus / total_patterns))
+
+    def basic_similarity(self, text1, text2):
+        """Calcule la similarité de base entre deux textes"""
         from difflib import SequenceMatcher
+        return SequenceMatcher(None, text1.lower(), text2.lower()).ratio()
+    
+    def find_item(self, search_text):
+        """Find item using EXACT same logic as stockage_system.py"""
+        import re
         
-        # Clean the search text
+        candidates = []
+        
+        # Collecter tous les candidats possibles
+        for item_name, item_data in self.api_data.items():
+            candidates.append((item_name, item_data, item_name))
+        
+        if not candidates:
+            return None, False
+        
+        # Nettoyer le nom de recherche (enlever les parenthèses de type)
         clean_search = re.sub(r'\([^)]*\)', '', search_text).strip()
         
-        best_match = None
-        best_score = 0
-        
-        for item_name in self.api_data.keys():
+        # Calculer les scores pour chaque candidat
+        scored_candidates = []
+        for item_name, item_data, display_name in candidates:
             clean_item_name = re.sub(r'\([^)]*\)', '', item_name).strip()
-            
-            # Calculate similarity
-            similarity = SequenceMatcher(None, clean_search.lower(), clean_item_name.lower()).ratio()
-            
-            if similarity > best_score and similarity > 0.6:  # Minimum 60% similarity
-                best_score = similarity
-                best_match = {'name': item_name, 'data': self.api_data[item_name]}
+            clean_display_name = re.sub(r'\([^)]*\)', '', display_name).strip()
+
+            # Utiliser le nom d'affichage pour la comparaison si disponible
+            comparison_name = clean_display_name if clean_display_name != clean_item_name else clean_item_name
+
+            # Filtrage par similarité de caractères (40% minimum)
+            char_similarity = self.character_similarity(clean_search, comparison_name)
+            if char_similarity < 0.4:
+                continue
+
+            # Scores multiples
+            basic_sim = self.basic_similarity(clean_search, comparison_name)
+            pattern2_sim = self.pattern_similarity(clean_search, comparison_name, 2)
+            pattern3_sim = self.pattern_similarity(clean_search, comparison_name, 3)
+
+            # Score combiné avec pondération
+            combined_score = (basic_sim * 0.4 + 
+                            pattern2_sim * 0.3 + 
+                            pattern3_sim * 0.3 +
+                            char_similarity * 0.1)
+
+            scored_candidates.append((item_name, item_data, combined_score, display_name))
+
+        if not scored_candidates:
+            return None, False
+
+        # Trier par score
+        scored_candidates.sort(key=lambda x: x[2], reverse=True)
+
+        # Vérifier s'il y a des doublons (même nom sans type)
+        best_item = scored_candidates[0]
+        best_clean_name = re.sub(r'\([^)]*\)', '', best_item[0]).strip()
+
+        duplicates = []
+        for item_name, item_data, score, display_name in scored_candidates[:10]:  # Limiter à 10 pour les performances
+            clean_name = re.sub(r'\([^)]*\)', '', item_name).strip()
+            if clean_name == best_clean_name and score > 0.3:
+                duplicates.append((item_name, item_data))
+
+        if len(duplicates) > 1:
+            return None, False  # Multiple matches found
         
-        return best_match, best_match is not None
+        if best_item[2] > 0.3:
+            return {'name': best_item[0], 'data': best_item[1]}, True
+        
+        return None, False
     
     def get_item_value(self, item_data, status):
         """Get item value based on status"""
