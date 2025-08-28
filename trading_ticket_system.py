@@ -321,14 +321,18 @@ class ItemModal(discord.ui.Modal):
         # Use le vrai système de stockage
         stockage_system = StockageSystem()
         
-        # Trouver l'item exact comme dans /add_stock
-        item_info = stockage_system.find_item_exact_match(self.item_name.value.strip())
+        # Trouver l'item comme dans /add_stock
+        best_match, duplicates = stockage_system.find_best_match(self.item_name.value.strip(), "None")
         
-        if not item_info:
+        if not best_match:
             await interaction.followup.send(f"❌ Item '{self.item_name.value}' not found in database!", ephemeral=True)
             return
         
-        item_name, item_data = item_info
+        if len(duplicates) > 1:
+            await interaction.followup.send(f"❌ Multiple items found for '{self.item_name.value}'. Please be more specific with the type!", ephemeral=True)
+            return
+        
+        item_name, item_data = best_match[0], best_match[1]
         
         # Obtenir la valeur selon le statut
         if status == "clean":
