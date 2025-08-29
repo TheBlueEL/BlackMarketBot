@@ -1146,6 +1146,30 @@ class ItemModal(discord.ui.Modal):
         # Check if item is obtainable before value check
         clean_item_name = item_name.split('(')[0].strip()
 
+        # Vérifier la valeur minimale (2.5M) et si l'item n'est pas obtainable
+        cash_value_str = item_data.get('Cash Value', '0')
+        try:
+            # Convertir la valeur en nombre (retirer les espaces et convertir)
+            if isinstance(cash_value_str, str):
+                cash_value_str = cash_value_str.replace(' ', '').replace(',', '')
+                if cash_value_str.lower() == 'n/a' or cash_value_str.lower() == 'unknown':
+                    cash_value = 0
+                else:
+                    cash_value = int(cash_value_str)
+            else:
+                cash_value = cash_value_str
+        except (ValueError, TypeError):
+            cash_value = 0
+
+        # Vérifier si la valeur est >= 2.5M
+        if cash_value < 2500000:
+            error_embed = await self.parent_view.ticket_system.create_error_embed(
+                "Item Value Too Low",
+                f"Item '{clean_item_name}' has a value below 2.5M and cannot be added to stock!"
+            )
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
+            return
+
         # Load obtainable items from data file
         try:
             obtainable_items = self.parent_view.ticket_system.data.get('obtainable', [])
