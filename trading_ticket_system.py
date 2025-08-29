@@ -74,7 +74,7 @@ class TradingTicketSystem:
         embed = discord.Embed(
             title="<:SellingLOGO:1410730163607437344> Selling Ticket",
             description="Please select which items you wish to sell.",
-            color=0xff6b35
+            color=0x19D600
         )
         embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
         if self.bot.user.avatar:
