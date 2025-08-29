@@ -1110,13 +1110,15 @@ class ItemModal(discord.ui.Modal):
             try:
                 with open('item_request.json', 'r', encoding='utf-8') as f:
                     item_request_data = json.load(f)
-                priority_order = item_request_data.get('priority_order', [
-                    "HyperChrome", "Vehicle", "Rim", "Spoiler", "Body Color", "Texture", 
-                    "Tire Sticker", "Tire Style", "Drift", "Furniture", "Horn", "Weapon Skin"
-                ])
+                priority_order = item_request_data.get('priority_order', {
+                    "HyperChrome": 0, "Vehicle": 1, "Rim": 2, "Spoiler": 3, "Body Color": 4, "Texture": 5,
+                    "Tire Sticker": 6, "Tire Style": 7, "Drift": 8, "Furniture": 9, "Horn": 10, "Weapon Skin": 11
+                })
             except:
-                priority_order = ["HyperChrome", "Vehicle", "Rim", "Spoiler", "Body Color", "Texture", 
-                                "Tire Sticker", "Tire Style", "Drift", "Furniture", "Horn", "Weapon Skin"]
+                priority_order = {
+                    "HyperChrome": 0, "Vehicle": 1, "Rim": 2, "Spoiler": 3, "Body Color": 4, "Texture": 5,
+                    "Tire Sticker": 6, "Tire Style": 7, "Drift": 8, "Furniture": 9, "Horn": 10, "Weapon Skin": 11
+                }
 
             # Look for exact name match first
             exact_matches = []
@@ -1126,54 +1128,30 @@ class ItemModal(discord.ui.Modal):
                 if clean_name == input_name:
                     exact_matches.append((item_name_dup, item_data_dup))
 
+            def get_priority_score(item_tuple):
+                item_name_dup, item_data_dup = item_tuple
+                # Extract type from item name
+                if "(HyperChrome)" in item_name_dup or "hyperchrome" in item_name_dup.lower():
+                    item_type_detected = "HyperChrome"
+                else:
+                    import re
+                    match = re.search(r'\(([^)]+)\)$', item_name_dup)
+                    if match:
+                        item_type_detected = match.group(1)
+                    else:
+                        item_type_detected = "Unknown"
+                
+                # Return priority score (lower = higher priority)
+                return priority_order.get(item_type_detected, 999)
+
             if len(exact_matches) == 1:
                 best_match = exact_matches[0]
             elif len(exact_matches) > 1:
                 # Multiple exact matches, use priority order
-                def get_priority_score(item_tuple):
-                    item_name_dup, item_data_dup = item_tuple
-                    # Extract type from item name
-                    if "(HyperChrome)" in item_name_dup or "hyperchrome" in item_name_dup.lower():
-                        item_type_detected = "HyperChrome"
-                    else:
-                        import re
-                        match = re.search(r'\(([^)]+)\)$', item_name_dup)
-                        if match:
-                            item_type_detected = match.group(1)
-                        else:
-                            item_type_detected = "Unknown"
-                    
-                    # Return index in priority_order (lower = higher priority)
-                    try:
-                        return priority_order.index(item_type_detected)
-                    except ValueError:
-                        return len(priority_order)  # Put at end if not in list
-                
-                # Sort by priority and take the first (highest priority)
                 sorted_matches = sorted(exact_matches, key=get_priority_score)
                 best_match = sorted_matches[0]
             else:
                 # No exact matches, use priority order on all duplicates
-                def get_priority_score(item_tuple):
-                    item_name_dup, item_data_dup = item_tuple
-                    # Extract type from item name
-                    if "(HyperChrome)" in item_name_dup or "hyperchrome" in item_name_dup.lower():
-                        item_type_detected = "HyperChrome"
-                    else:
-                        import re
-                        match = re.search(r'\(([^)]+)\)$', item_name_dup)
-                        if match:
-                            item_type_detected = match.group(1)
-                        else:
-                            item_type_detected = "Unknown"
-                    
-                    # Return index in priority_order (lower = higher priority)
-                    try:
-                        return priority_order.index(item_type_detected)
-                    except ValueError:
-                        return len(priority_order)  # Put at end if not in list
-                
-                # Sort by priority and take the first (highest priority)
                 sorted_duplicates = sorted(duplicates, key=get_priority_score)
                 best_match = sorted_duplicates[0]
 
@@ -1185,13 +1163,14 @@ class ItemModal(discord.ui.Modal):
         # Vérifier la valeur minimale (2.5M) et si l'item n'est pas obtainable
         cash_value_str = item_data.get('Cash Value', '0')
         try:
-            # Convertir la valeur en nombre (retirer les espaces et convertir)
+            # Convertir la valeur en nombre (retirer tous les types d'espaces et convertir)
             if isinstance(cash_value_str, str):
-                cash_value_str = cash_value_str.replace(' ', '').replace(',', '')
-                if cash_value_str.lower() == 'n/a' or cash_value_str.lower() == 'unknown':
+                import re
+                clean_cash_value_str = re.sub(r'[\s,\u00A0\u2000-\u200B\u202F\u205F\u3000]+', '', cash_value_str)
+                if clean_cash_value_str.lower() in ['n/a', 'unknown', '']:
                     cash_value = 0
                 else:
-                    cash_value = int(cash_value_str)
+                    cash_value = int(clean_cash_value_str)
             else:
                 cash_value = cash_value_str
         except (ValueError, TypeError):
@@ -1241,7 +1220,7 @@ class ItemModal(discord.ui.Modal):
             if isinstance(value_str, str):
                 # Remove all types of spaces (normal, Unicode, etc.) and commas
                 import re
-                clean_value_str = re.sub(r'[\s,]+', '', value_str)
+                clean_value_str = re.sub(r'[\s,\u00A0\u2000-\u200B\u202F\u205F\u3000]+', '', value_str)
                 if clean_value_str.lower() in ['n/a', 'unknown', '']:
                     value = 0
                 else:
