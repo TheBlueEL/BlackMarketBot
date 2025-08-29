@@ -225,12 +225,12 @@ class TradingTicketSystem:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
 
-    async def create_gamepass_result_embed(self, user, experience_url):
+    async def create_gamepass_result_embed(self, user, gamepass_url):
         """Create embed showing gamepass creation link"""
         embed = discord.Embed(
-            title="<:SellingLOGO:1410730163607437344> Selling Ticket",
-            description=f"Your GamePass has been successfully created!\n**GamePass Name:** {gamepass_name}\n**GamePass Price:** {gamepass_price:,} <:RobuxLOGO:1410727587134701639>\n\nPlease now set your GamePass price by clicking this link:\n[**Edit GamePass Price**]({price_link})\n\nWe are now monitoring your GamePass price changes...",
-            color=0x00ff00
+            title="<:SellingLOGO:1410730163607437344> GamePass Creation",
+            description=f"Please create a GamePass using the link below:\n\n[**Create GamePass**]({gamepass_url})\n\nOnce created, we will automatically detect it and guide you through setting the correct price.\n\nWe are now monitoring for new GamePass creation...",
+            color=0x00ff88
         )
         embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
         if self.bot.user.avatar:
