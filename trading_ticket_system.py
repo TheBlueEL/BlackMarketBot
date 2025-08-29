@@ -239,11 +239,13 @@ class TradingTicketSystem:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
 
-    async def create_gamepass_success_embed(self, user, gamepass_name, gamepass_price):
+    async def create_gamepass_success_embed(self, user, gamepass_name, gamepass_price, gamepass_id, experience_id):
         """Create embed when GamePass is successfully created"""
+        price_link = f"https://create.roblox.com/dashboard/creations/experiences/{experience_id}/passes/{gamepass_id}/sales"
+        
         embed = discord.Embed(
             title="<:SellingLOGO:1410730163607437344> GamePass Créé",
-            description=f"Votre GamePass à été crée avec Succès!\n**GamePass Name:** {gamepass_name}\n**GamePass Price:** {gamepass_price:,} <:RobuxLOGO:1410727587134701639>\n\nVeuillez attendre que notre équipe soit disponible afin de pouvoir effectuer cette transaction.",
+            description=f"Votre GamePass à été crée avec Succès!\n**GamePass Name:** {gamepass_name}\n**GamePass Price:** {gamepass_price:,} <:RobuxLOGO:1410727587134701639>\n\nVeuillez maintenant définir le prix de votre GamePass en cliquant sur ce lien:\n[**Modifier le prix du GamePass**]({price_link})\n\nNous surveillons maintenant les changements de prix de votre GamePass...",
             color=0x00ff00
         )
         embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
@@ -429,38 +431,15 @@ class TradingTicketSystem:
                             gamepass_name = new_gamepass.get('name', 'Unknown')
                             gamepass_price = new_gamepass.get('price')
                             
-                            # Send creation success embed
+                            # Send creation success embed with price modification link
                             success_embed = await self.create_gamepass_success_embed(
-                                user, gamepass_name, gamepass_price or 0
+                                user, gamepass_name, gamepass_price or 0, new_gamepass_id, experience_id
                             )
                             await channel.send(embed=success_embed)
                             
-                            # Wait 3 seconds then send transaction pending
-                            await asyncio.sleep(3)
-                            
-                            # Calculate total robux for transaction
-                            total_value = sum(item['value'] * item['quantity'] for item in items_list)
-                            total_millions = total_value / 1_000_000
-                            robux_rate = self.calculate_robux_rate(total_millions)
-                            total_robux_with_tax = int(total_millions * robux_rate * 0.70)
-                            
-                            # Send transaction pending embed (ping outside)
-                            pending_embed = await self.create_transaction_pending_embed(
-                                user, username, new_gamepass_id, items_list, total_robux_with_tax
-                            )
-                            
-                            # Create accept button view
-                            accept_view = AcceptTransactionView(self, channel, user)
-                            
-                            await channel.send(
-                                content="<@1300798850788757564>",
-                                embed=pending_embed,
-                                view=accept_view
-                            )
-                            
-                            # Start price monitoring for this GamePass
+                            # Start price monitoring for this GamePass immediately
                             await self._monitor_gamepass_price(
-                                channel, user, new_gamepass_id, expected_price
+                                channel, user, username, new_gamepass_id, expected_price, items_list
                             )
                             
                             # Stop monitoring for new GamePass creation
@@ -476,7 +455,7 @@ class TradingTicketSystem:
         except Exception as e:
             print(f"Error in GamePass creation monitoring: {e}")
 
-    async def _monitor_gamepass_price(self, channel, user, gamepass_id, expected_price):
+    async def _monitor_gamepass_price(self, channel, user, username, gamepass_id, expected_price, items_list):
         """Monitor GamePass price changes"""
         try:
             from roblox_gamepasslink import GamePassLink
@@ -495,8 +474,32 @@ class TradingTicketSystem:
                         
                         if current_price is not None and current_price != 0:  # Price was set
                             if current_price == expected_price:
-                                # Price is correct, everything is good
-                                # The transaction pending embed was already sent
+                                # Price is correct! Send transaction pending
+                                
+                                # Wait 3 seconds first
+                                await asyncio.sleep(3)
+                                
+                                # Calculate total robux for transaction
+                                total_value = sum(item['value'] * item['quantity'] for item in items_list)
+                                total_millions = total_value / 1_000_000
+                                robux_rate = self.calculate_robux_rate(total_millions)
+                                total_robux_with_tax = int(total_millions * robux_rate * 0.70)
+                                
+                                # Send transaction pending embed (ping outside)
+                                pending_embed = await self.create_transaction_pending_embed(
+                                    user, username, gamepass_id, items_list, total_robux_with_tax
+                                )
+                                
+                                # Create accept button view
+                                accept_view = AcceptTransactionView(self, channel, user)
+                                
+                                await channel.send(
+                                    content="<@1300798850788757564>",
+                                    embed=pending_embed,
+                                    view=accept_view
+                                )
+                                
+                                # Stop monitoring, transaction is ready
                                 break
                             else:
                                 # Price is incorrect, send error
