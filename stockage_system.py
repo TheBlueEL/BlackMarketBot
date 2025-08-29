@@ -421,11 +421,8 @@ class StockageSystem:
                     else:
                         item_type_detected = "Unknown"
                 
-                # Retourner l'index dans priority_order (plus petit = plus prioritaire)
-                try:
-                    return priority_order.index(item_type_detected)
-                except ValueError:
-                    return len(priority_order)  # Mettre à la fin si pas dans la liste
+                # Retourner la valeur de priorité du dictionnaire (plus petit = plus prioritaire)
+                return priority_order.get(item_type_detected, 999)
             
             # Trier par priorité et prendre le premier
             sorted_duplicates = sorted(duplicates, key=get_priority_score)
