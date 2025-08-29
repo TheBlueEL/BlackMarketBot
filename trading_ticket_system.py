@@ -1683,6 +1683,30 @@ class AccountConfirmationView(discord.ui.View):
             robux_rate = self.ticket_system.calculate_robux_rate(total_millions)
             total_robux = int(total_millions * robux_rate)
 
+            # Disable buttons on current embed (confirmation embed)
+            disabled_view = discord.ui.View()
+            disabled_view.timeout = None
+            
+            # Add disabled buttons
+            confirm_button = discord.ui.Button(
+                label='Confirm',
+                style=discord.ButtonStyle.success,
+                custom_id='confirm_account_disabled',
+                disabled=True
+            )
+            other_button = discord.ui.Button(
+                label='Other Account',
+                style=discord.ButtonStyle.secondary,
+                custom_id='other_account_disabled',
+                disabled=True
+            )
+            
+            disabled_view.add_item(confirm_button)
+            disabled_view.add_item(other_button)
+            
+            # Update the current embed with disabled buttons
+            await interaction.edit_original_response(view=disabled_view)
+
             if is_in_group:
                 # User already in group - direct transaction
                 transaction_embed = await self.ticket_system.create_group_transaction_embed(
@@ -1695,11 +1719,11 @@ class AccountConfirmationView(discord.ui.View):
                 )
 
                 content = f"{interaction.user.mention} <@&1300798850788757564>"
-                await interaction.edit_original_response(content=content, embed=transaction_embed, view=view)
+                await interaction.followup.send(content=content, embed=transaction_embed, view=view)
             else:
-                # User needs to join group
+                # User needs to join group - send new embed
                 join_embed = await self.ticket_system.create_group_join_embed()
-                await interaction.edit_original_response(embed=join_embed, view=None)
+                await interaction.followup.send(embed=join_embed)
 
                 # Start monitoring for group join using the dedicated module
                 if group_monitor:
