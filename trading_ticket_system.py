@@ -240,7 +240,7 @@ class TradingTicketSystem:
     async def create_account_confirmation_embed(self, roblox_user_data):
         """Create account confirmation embed"""
         embed = discord.Embed(
-            title="Account Confirmation",
+            title="<:ParticipantsLOGO:1388214072188862574> Account Confirmation",
             color=0x0099ff
         )
 
@@ -471,7 +471,7 @@ class TradingTicketSystem:
 
         embed = discord.Embed(
             title="<:SellingLOGO:1410730163607437344> GamePass Created",
-            description=f"Your GamePass has been successfully created!\n**GamePass Name:** {gamepass_name}\n**GamePass Price:** {gamepass_price:,} <:RobuxLOGO:1410727587134701639>\n\nPlease now set your GamePass price by clicking this link:\n[**Edit GamePass Price**]({price_link})\n\nWe are now monitoring your GamePass price changes...",
+            description=f"Your GamePass has been successfully created!\n**GamePass Name:** {gamepass_name}\n**Current GamePass Price:** {gamepass_price:,} <:RobuxLOGO:1410727587134701639>\n\nPlease now set your GamePass price by clicking this link:\n[**Edit GamePass Price**]({price_link})\n\nWe are now monitoring your GamePass price changes...",
             color=0x00ff00
         )
         embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
@@ -615,18 +615,20 @@ class TradingTicketSystem:
         except FileNotFoundError:
             return {'name': item_input, 'type': 'None', 'is_hyperchrome': False}
 
-        # Check for hyperchrome patterns first
+        # Check for hyperchrome patterns first - with exact match priority
         hyper_data = item_data.get('hyper', {})
+        
+        # First pass: look for exact matches
         for hyper_name, aliases in hyper_data.items():
             for alias in aliases:
                 if alias.lower() == item_input.lower():
-                    # Found hyperchrome match, get from API with 2023 year
+                    # Found exact hyperchrome match, get from API with 2023 year
                     try:
                         with open('API_JBChangeLogs.json', 'r', encoding='utf-8') as f:
                             api_data = json.load(f)
 
-                        # Look for hyperchrome with 2023 year
-                        hyperchrome_name_2023 = f"{hyper_name} (2023)"
+                        # Look for hyperchrome with 2023 year first
+                        hyperchrome_name_2023 = f"{hyper_name} 2023 (HyperChrome)"
                         if hyperchrome_name_2023 in api_data:
                             return {
                                 'name': hyper_name,  # Display name without year
@@ -635,7 +637,17 @@ class TradingTicketSystem:
                                 'api_name': hyperchrome_name_2023
                             }
 
-                        # Fallback to original name if 2023 not found
+                        # Try without year but with HyperChrome tag
+                        hyperchrome_name_normal = f"{hyper_name} (HyperChrome)"
+                        if hyperchrome_name_normal in api_data:
+                            return {
+                                'name': hyper_name,
+                                'type': 'Hyperchrome',
+                                'is_hyperchrome': True,
+                                'api_name': hyperchrome_name_normal
+                            }
+
+                        # Fallback to original name if found in API
                         if hyper_name in api_data:
                             return {
                                 'name': hyper_name,
@@ -1518,7 +1530,7 @@ class UsernameModal(discord.ui.Modal):
             user_id = client.get_user_id_by_username(username)
 
             if not user_id:
-                error_embed = await self.parent_view.ticket_system.create_error_embed(
+                error_embed = await self.parent_view.create_error_embed(
                     "User Not Found",
                     f"No username exists with the name '{username}'!"
                 )
@@ -1537,11 +1549,11 @@ class UsernameModal(discord.ui.Modal):
             }
 
             # Create account confirmation embed
-            confirmation_embed = await self.parent_view.ticket_system.create_account_confirmation_embed(roblox_user_data)
+            confirmation_embed = await self.parent_view.create_account_confirmation_embed(roblox_user_data)
 
             # Create confirmation view
             confirmation_view = AccountConfirmationView(
-                self.parent_view.ticket_system,
+                self.parent_view,
                 self.parent_view.user_id,
                 self.parent_view.items_list,
                 roblox_user_data,
@@ -1551,13 +1563,13 @@ class UsernameModal(discord.ui.Modal):
             await interaction.edit_original_response(embed=confirmation_embed, view=confirmation_view)
 
         except ImportError:
-            error_embed = await self.parent_view.ticket_system.create_error_embed(
+            error_embed = await self.parent_view.create_error_embed(
                 "System Error",
                 "Roblox integration is not available. Please contact an administrator."
             )
             await interaction.followup.send(embed=error_embed, ephemeral=True)
         except Exception as e:
-            error_embed = await self.parent_view.ticket_system.create_error_embed(
+            error_embed = await self.parent_view.create_error_embed(
                 "Error",
                 f"An error occurred while processing your request: {str(e)}"
             )
@@ -1591,7 +1603,9 @@ class AccountConfirmationView(discord.ui.View):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
-        modal = UsernameModal(self.ticket_system, self.method)
+        # Create a temporary PaymentMethodView to use as parent for the modal
+        temp_parent = PaymentMethodView(self.ticket_system, self.user_id, self.items_list)
+        modal = UsernameModal(temp_parent, self.method)
         await interaction.response.send_modal(modal)
 
     async def _handle_gamepass_method(self, interaction):
@@ -1795,7 +1809,7 @@ class RefuseReasonModal(discord.ui.Modal):
         self.channel = channel
 
         self.reason = discord.ui.TextInput(
-            label="Reason for refusal",
+            label="Reason",
             placeholder="Enter the reason for refusing this transaction...",
             required=True,
             style=discord.TextStyle.paragraph,
@@ -1809,7 +1823,7 @@ class RefuseReasonModal(discord.ui.Modal):
 
         # Create refusal embed for DM
         refuse_embed = discord.Embed(
-            title="Sell Request Refused",
+            title="<:ErrorLOGO:1387810170155040888> Request Refused",
             description=f"Your selling request has been refused by our staff for these reasons:\n{self.reason.value}",
             color=0xff0000
         )
@@ -1817,13 +1831,12 @@ class RefuseReasonModal(discord.ui.Modal):
         try:
             # Send DM to user
             await self.user.send(embed=refuse_embed)
-            await interaction.followup.send("Refusal reason sent to user via DM.", ephemeral=True)
         except discord.Forbidden:
-            await interaction.followup.send("Could not send DM to user, but transaction was refused.", ephemeral=True)
+            await interaction.followup.send("Could not send DM to user, But transaction was refused.", ephemeral=True)
 
         # Delete the channel after a short delay
         await asyncio.sleep(5)
-        await self.channel.delete(reason="Transaction refused by staff")
+        await self.channel.delete(reason="Transaction Refused by Staff")
 
 class AcceptTransactionView(discord.ui.View):
     def __init__(self, ticket_system, channel, user):
