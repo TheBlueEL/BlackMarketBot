@@ -83,15 +83,31 @@ class GamePassLink:
     def get_game_pass_details(self, gamepass_id):
         """Récupère les détails d'un GamePass spécifique"""
         try:
-            url = f'https://games.roblox.com/v1/game-passes/{gamepass_id}'
+            # Try the catalog API first
+            url = f'https://catalog.roblox.com/v1/catalog/items/details'
+            params = {
+                'items': [{'itemType': 'GamePass', 'id': gamepass_id}]
+            }
+            
+            response = self.session.post(url, json=params)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('data') and len(data['data']) > 0:
+                    return data['data'][0]
+            
+            # Fallback: try the marketplace API
+            url = f'https://economy.roblox.com/v2/assets/{gamepass_id}/details'
             
             response = self.session.get(url)
             
             if response.status_code == 200:
                 return response.json()
-            else:
-                print(f"Erreur API GamePass details: {response.status_code}")
-                return None
+            
+            # If both fail, try to get it from the games API with a different approach
+            # This is a fallback that might not always work
+            return None
+            
         except Exception as e:
             print(f"Erreur lors de la récupération des détails GamePass: {e}")
             return None
