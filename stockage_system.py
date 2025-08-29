@@ -290,18 +290,38 @@ class StockageSystem:
     def find_best_match(self, search_text, item_type, year=None):
         """Trouve le meilleur match pour un item avec algorithme de scoring amélioré"""
         candidates = []
-
-        # Collecter tous les candidats possibles
-        for item_name, item_data in self.api_data.items():
-            candidates.append((item_name, item_data, item_name))
-
-        # Ajouter les hyperchromes spéciaux
+        
+        # D'abord vérifier si c'est un hyperchrome via les aliases
         hyper_data = self.item_request_data.get('hyper', {})
+        hyperchrome_match = None
+        
         for official_name, aliases in hyper_data.items():
             for alias in aliases:
-                # Simuler des données pour les hyperchromes
-                fake_data = {"cash_value": "Unknown", "duped_value": "Unknown", "demand": "Unknown"}
-                candidates.append((official_name, fake_data, alias))
+                if alias.lower() == search_text.lower():
+                    # Trouvé un match exact dans les aliases d'hyperchrome
+                    # Chercher dans l'API avec le nom officiel
+                    api_name_2023 = f"{official_name} 2023 (HyperChrome)"
+                    api_name_normal = f"{official_name} (HyperChrome)"
+                    
+                    if api_name_2023 in self.api_data:
+                        hyperchrome_match = (api_name_2023, self.api_data[api_name_2023], official_name)
+                    elif api_name_normal in self.api_data:
+                        hyperchrome_match = (api_name_normal, self.api_data[api_name_normal], official_name)
+                    else:
+                        # Simuler des données pour les hyperchromes non trouvés dans l'API
+                        fake_data = {"Cash Value": "Unknown", "Duped Value": "Unknown", "Demand": "Unknown", "Type": "HyperChrome"}
+                        hyperchrome_match = (official_name, fake_data, official_name)
+                    break
+            if hyperchrome_match:
+                break
+        
+        # Si on a trouvé un hyperchrome et qu'aucun type spécifique n'est demandé, le retourner directement
+        if hyperchrome_match and (item_type == "None" or item_type == "Hyperchrome"):
+            return hyperchrome_match, [hyperchrome_match]
+
+        # Collecter tous les candidats possibles de l'API
+        for item_name, item_data in self.api_data.items():
+            candidates.append((item_name, item_data, item_name))
 
         # Filtrer par type si spécifié
         if item_type == "Hyperchrome":
@@ -382,11 +402,36 @@ class StockageSystem:
             if clean_name == best_clean_name and score > 0.3:
                 duplicates.append((item_name, item_data))
 
-        # Pénalité pour les items avec même nom mais type différent si pas de type spécifié
+        # Utiliser priority_order pour résoudre les ambiguïtés quand aucun type n'est spécifié
         if item_type == "None" and len(duplicates) > 1:
-            # Appliquer une pénalité significative
-            penalized_score = best_item[2] * 0.3
-            best_item = (best_item[0], best_item[1], penalized_score, best_item[3])
+            priority_order = self.item_request_data.get('priority_order', [])
+            
+            # Trier les duplicates selon l'ordre de priorité
+            def get_priority_score(item_tuple):
+                item_name, item_data = item_tuple
+                # Extraire le type de l'item
+                if "(HyperChrome)" in item_name or "hyper" in item_name.lower():
+                    item_type_detected = "HyperChrome"
+                else:
+                    # Extraire le type entre parenthèses
+                    import re
+                    match = re.search(r'\(([^)]+)\)$', item_name)
+                    if match:
+                        item_type_detected = match.group(1)
+                    else:
+                        item_type_detected = "Unknown"
+                
+                # Retourner l'index dans priority_order (plus petit = plus prioritaire)
+                try:
+                    return priority_order.index(item_type_detected)
+                except ValueError:
+                    return len(priority_order)  # Mettre à la fin si pas dans la liste
+            
+            # Trier par priorité et prendre le premier
+            sorted_duplicates = sorted(duplicates, key=get_priority_score)
+            best_match = sorted_duplicates[0]
+            
+            return best_match, duplicates
 
         if len(duplicates) > 1:
             return None, duplicates
