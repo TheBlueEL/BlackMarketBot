@@ -244,8 +244,8 @@ class TradingTicketSystem:
         price_link = f"https://create.roblox.com/dashboard/creations/experiences/{experience_id}/passes/{gamepass_id}/sales"
         
         embed = discord.Embed(
-            title="<:SellingLOGO:1410730163607437344> GamePass Créé",
-            description=f"Votre GamePass à été crée avec Succès!\n**GamePass Name:** {gamepass_name}\n**GamePass Price:** {gamepass_price:,} <:RobuxLOGO:1410727587134701639>\n\nVeuillez maintenant définir le prix de votre GamePass en cliquant sur ce lien:\n[**Modifier le prix du GamePass**]({price_link})\n\nNous surveillons maintenant les changements de prix de votre GamePass...",
+            title="<:SellingLOGO:1410730163607437344> GamePass Created",
+            description=f"Your GamePass has been successfully created!\n**GamePass Name:** {gamepass_name}\n**GamePass Price:** {gamepass_price:,} <:RobuxLOGO:1410727587134701639>\n\nPlease now set your GamePass price by clicking this link:\n[**Edit GamePass Price**]({price_link})\n\nWe are now monitoring your GamePass price changes...",
             color=0x00ff00
         )
         embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
@@ -256,8 +256,8 @@ class TradingTicketSystem:
     async def create_transaction_pending_embed(self, seller_user, seller_username, gamepass_id, items_list, total_robux):
         """Create transaction pending embed for support team"""
         embed = discord.Embed(
-            title="Transaction en attente",
-            description=f"Welcome Back <@1300798850788757564>! {seller_user.mention} veut vendre pour {total_robux:,} Robux:",
+            title="Transaction Pending",
+            description=f"Welcome Back <@1300798850788757564>! {seller_user.mention} wants to sell for {total_robux:,} Robux:",
             color=0xffaa00
         )
 
@@ -331,8 +331,8 @@ class TradingTicketSystem:
     async def create_price_error_embed(self, user, expected_price, actual_price):
         """Create embed when GamePass price is incorrect"""
         embed = discord.Embed(
-            title="Prix Incorrect",
-            description=f"Votre gamepass n'est pas conforme aux prix d'origine qui est de {expected_price:,} robux.\nLe votre est de {actual_price:,} robux. Veuillez cliquer sur le lien précédent à nouveau pour changer la valeur du gamepass.\n-# Veuillez ne pas en créer un nouveau.",
+            title="Incorrect Price",
+            description=f"Your GamePass price doesn't match the required amount of **{expected_price:,}** Robux.\nYour current price is **{actual_price:,}** Robux.\n\nPlease use the previous link again to update your GamePass price to the correct amount.\n-# Please do not create a new GamePass.",
             color=0xff0000
         )
         embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
@@ -343,8 +343,8 @@ class TradingTicketSystem:
     async def create_purchase_accepted_embed(self, user):
         """Create embed when purchase is accepted"""
         embed = discord.Embed(
-            title="Achat Accepté",
-            description="Notre équipe a accepté votre achat nous allons maintenant procéder à la transaction.",
+            title="Purchase Accepted",
+            description="Our team has accepted your purchase. We will now proceed with the transaction.",
             color=0x00ff00
         )
         embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
@@ -477,6 +477,8 @@ class TradingTicketSystem:
                 
             experience_id = experiences[0].get('id')
             
+            last_notified_price = None  # Track the last price we sent an error for
+            
             while True:
                 await asyncio.sleep(5)  # Check every 5 seconds
                 
@@ -524,14 +526,16 @@ class TradingTicketSystem:
                                 # Stop monitoring, transaction is ready
                                 break
                             else:
-                                # Price is incorrect, send error
-                                error_embed = await self.create_price_error_embed(
-                                    user, expected_price, current_price
-                                )
-                                await channel.send(
-                                    content=user.mention,
-                                    embed=error_embed
-                                )
+                                # Price is incorrect, only send error if price changed
+                                if last_notified_price != current_price:
+                                    error_embed = await self.create_price_error_embed(
+                                        user, expected_price, current_price
+                                    )
+                                    await channel.send(
+                                        content=user.mention,
+                                        embed=error_embed
+                                    )
+                                    last_notified_price = current_price
                                 # Continue monitoring for price changes
                     else:
                         print(f"GamePass {gamepass_id} not found in experience {experience_id}")
@@ -1119,7 +1123,7 @@ class AcceptTransactionView(discord.ui.View):
         self.channel = channel
         self.user = user
 
-    @discord.ui.button(label='Accepter', style=discord.ButtonStyle.success, emoji='✅', custom_id='accept_transaction')
+    @discord.ui.button(label='Accept', style=discord.ButtonStyle.success, emoji='✅', custom_id='accept_transaction')
     async def accept_transaction(self, interaction: discord.Interaction, button: discord.ui.Button):
         # Check if user has appropriate permissions (you can modify this)
         if not interaction.user.guild_permissions.manage_guild:
