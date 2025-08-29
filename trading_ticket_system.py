@@ -668,10 +668,10 @@ class TradingTicketSystem:
                 color = match.group(1).capitalize()
                 level = match.group(-1)  # Last group is always the number
                 
-                # Try to find matching hyperchrome
-                for hyper_name in hyper_data.keys():
-                    if f"Hyper{color}" in hyper_name and f"Level {level}" in hyper_name:
-                        return self._get_hyperchrome_from_api(hyper_name, api_data)
+                # Try to find exact matching hyperchrome
+                target_name = f"Hyper{color} Level {level}"
+                if target_name in hyper_data:
+                    return self._get_hyperchrome_from_api(target_name, api_data)
 
         # Third pass: check if input might be a hyperchrome name directly
         for hyper_name in hyper_data.keys():
