@@ -208,7 +208,7 @@ class TradingTicketSystem:
         """Create the information embed explaining payment methods"""
         embed = discord.Embed(
             title="<:SellingLOGO:1410730163607437344> Selling Information",
-            color=0xff6b35
+            color=0xFFFFFF
         )
 
         description_lines = [
