@@ -1077,7 +1077,7 @@ class ItemModal(discord.ui.Modal):
             return
 
         # Parse item name using item_request.json like /add_stock
-        parsed_item = self.parse_item_with_hyperchrome(self.item_name.value.strip())
+        parsed_item = self.parent_view.ticket_system.parse_item_with_hyperchrome(self.item_name.value.strip())
         
         stockage_system = StockageSystem()
         
