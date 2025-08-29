@@ -575,18 +575,18 @@
       "vehicles"
     ]
   },
-  "priority_order": [
-    "HyperChrome",
-    "Vehicle",
-    "Rim",
-    "Spoiler",
-    "Body Color",
-    "Texture",
-    "Tire Sticker",
-    "Tire Style",
-    "Drift",
-    "Furniture",
-    "Horn",
-    "Weapon Skin"
-  ]
+  "priority_order": {
+    "HyperChrome": 0,
+    "Vehicle": 1,
+    "Rim": 2,
+    "Spoiler": 3,
+    "Body Color": 4,
+    "Texture": 5,
+    "Tire Sticker": 6,
+    "Tire Style": 7,
+    "Drift": 8,
+    "Furniture": 9,
+    "Horn": 10,
+    "Weapon Skin": 11
+  }
 }
