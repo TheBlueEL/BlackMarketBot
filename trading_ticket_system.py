@@ -515,7 +515,7 @@ class TradingTicketSystem:
             username_link = seller_username
 
         embed.add_field(
-            name="Roblox Username", 
+            name="Roblox Username",
             value=username_link,
             inline=False
         )
@@ -563,7 +563,7 @@ class TradingTicketSystem:
                 item_data = json.load(f)
         except FileNotFoundError:
             return {'name': item_input, 'type': 'None', 'is_hyperchrome': False}
-        
+
         # Check for hyperchrome patterns first
         hyper_data = item_data.get('hyper', {})
         for hyper_name, aliases in hyper_data.items():
@@ -573,7 +573,7 @@ class TradingTicketSystem:
                     try:
                         with open('API_JBChangeLogs.json', 'r', encoding='utf-8') as f:
                             api_data = json.load(f)
-                        
+
                         # Look for hyperchrome with 2023 year
                         hyperchrome_name_2023 = f"{hyper_name} (2023)"
                         if hyperchrome_name_2023 in api_data:
@@ -583,29 +583,29 @@ class TradingTicketSystem:
                                 'is_hyperchrome': True,
                                 'api_name': hyperchrome_name_2023
                             }
-                        
+
                         # Fallback to original name if 2023 not found
                         if hyper_name in api_data:
                             return {
                                 'name': hyper_name,
-                                'type': 'Hyperchrome', 
+                                'type': 'Hyperchrome',
                                 'is_hyperchrome': True,
                                 'api_name': hyper_name
                             }
                     except FileNotFoundError:
                         pass
-                    
+
                     return {
                         'name': hyper_name,
                         'type': 'Hyperchrome',
                         'is_hyperchrome': True
                     }
-        
+
         # Check for type patterns
         type_data = item_data.get('type', {})
         detected_type = 'None'
         clean_name = item_input
-        
+
         for type_name, aliases in type_data.items():
             for alias in aliases:
                 if alias.lower() in item_input.lower():
@@ -615,7 +615,7 @@ class TradingTicketSystem:
                     break
             if detected_type != 'None':
                 break
-        
+
         return {
             'name': clean_name,
             'type': detected_type,
@@ -1046,7 +1046,18 @@ class ItemModal(discord.ui.Modal):
         self.add_item(self.status)
 
     async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.defer()
+        try:
+            await interaction.response.defer()
+        except discord.NotFound:
+            # Interaction has expired
+            try:
+                await interaction.followup.send("Interaction expired. Please try again.", ephemeral=True)
+            except:
+                pass
+            return
+        except Exception as e:
+            print(f"Error deferring modal interaction: {e}")
+            return
 
         # Validate status
         status = self.status.value.strip().lower()
@@ -1078,9 +1089,9 @@ class ItemModal(discord.ui.Modal):
 
         # Parse item name using item_request.json like /add_stock
         parsed_item = self.parent_view.ticket_system.parse_item_with_hyperchrome(self.item_name.value.strip())
-        
+
         stockage_system = StockageSystem()
-        
+
         # Find the item with specific type preference
         item_type = parsed_item.get('type', 'None')
         best_match, duplicates = stockage_system.find_best_match(parsed_item['name'], item_type)
@@ -1134,13 +1145,13 @@ class ItemModal(discord.ui.Modal):
 
         # Check if item is obtainable before value check
         clean_item_name = item_name.split('(')[0].strip()
-        
+
         # Load obtainable items from data file
         try:
             obtainable_items = self.parent_view.ticket_system.data.get('obtainable', [])
         except:
             obtainable_items = []
-        
+
         if clean_item_name in obtainable_items:
             error_embed = await self.parent_view.ticket_system.create_error_embed(
                 "Item Information",
