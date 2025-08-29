@@ -964,7 +964,7 @@ class TicketPanelView(discord.ui.View):
             overwrites[role] = discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_messages=True)
 
         # Create channel
-        channel_name = f"ticket-{interaction.user.name.lower()}-{interaction.user.discriminator}"
+        channel_name = f"『🎟️』Ticket・{interaction.user.name.lower()}"
         ticket_channel = await guild.create_text_channel(
             name=channel_name,
             overwrites=overwrites,
