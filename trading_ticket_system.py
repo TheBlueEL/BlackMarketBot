@@ -296,7 +296,7 @@ class TradingTicketSystem:
         return embed
 
     async def create_transaction_ready_embed(self, items_list, total_robux):
-        """Create embed when 2-week period is complete"""
+        """Create embed when 2-week waiting period is complete"""
         embed = discord.Embed(
             title="Transaction Ready",
             description=f"The 2-week period has elapsed, you can now proceed with the transaction of your items.\n\n**Total Amount:** {total_robux:,} Robux\n**Payment Link:** [**HERE**](https://www.roblox.com/group/configure?id=34785441#!/revenue/payouts)",
@@ -858,9 +858,9 @@ class SellingFormView(discord.ui.View):
 
         # Always show Add Item button
         add_button = discord.ui.Button(
-            label='Add Item', 
-            style=discord.ButtonStyle.success, 
-            emoji='<:CreateLOGO:1390385790726570130>', 
+            label='Add Item',
+            style=discord.ButtonStyle.success,
+            emoji='<:CreateLOGO:1390385790726570130>',
             custom_id='selling_add_item'
         )
         add_button.callback = self.handle_add_item
@@ -869,9 +869,9 @@ class SellingFormView(discord.ui.View):
         # Show Remove Item button only if there are items
         if self.items_list:
             remove_button = discord.ui.Button(
-                label='Remove Item', 
-                style=discord.ButtonStyle.danger, 
-                emoji='<:RemoveLOGO:1410726980114190386>', 
+                label='Remove Item',
+                style=discord.ButtonStyle.danger,
+                emoji='<:RemoveLOGO:1410726980114190386>',
                 custom_id='selling_remove_item'
             )
             remove_button.callback = self.handle_remove_item
@@ -879,9 +879,9 @@ class SellingFormView(discord.ui.View):
 
             # Show Next button if there are items
             next_button = discord.ui.Button(
-                label='Next', 
-                style=discord.ButtonStyle.primary, 
-                emoji='<:NextLOGO:1410972675261857892>', 
+                label='Next',
+                style=discord.ButtonStyle.primary,
+                emoji='<:NextLOGO:1410972675261857892>',
                 custom_id='selling_next'
             )
             next_button.callback = self.handle_next_to_payment
@@ -889,9 +889,9 @@ class SellingFormView(discord.ui.View):
 
         # Always show Back button
         back_button = discord.ui.Button(
-            label='Back', 
-            style=discord.ButtonStyle.secondary, 
-            emoji='<:BackLOGO:1410726662328422410>', 
+            label='Back',
+            style=discord.ButtonStyle.secondary,
+            emoji='<:BackLOGO:1410726662328422410>',
             custom_id='selling_back'
         )
         back_button.callback = self.handle_back_to_options
@@ -1114,12 +1114,22 @@ class ItemModal(discord.ui.Modal):
         type_match = re.search(r'\(([^)]*)\)', item_name)
         item_type = type_match.group(1) if type_match else "Unknown"
 
+        # For hyperchromes, remove year from display name
+        if item_type == "Hyperchrome":
+            # Remove any year (2022, 2023, 2024, etc.) from the clean name
+            clean_name = re.sub(r'\b(202[2-9]|20[3-9][0-9])\b', '', clean_name).strip()
+
+        # Get item type from the full name
+        type_match = re.search(r'\(([^)]*)\)', item_name)
+        final_item_type = type_match.group(1) if type_match else item_type
+
+
         item_entry = {
             'name': clean_name,
             'quantity': quantity,
             'status': status.capitalize(),
             'value': value,
-            'type': item_type
+            'type': final_item_type
         }
 
         if self.action == "add":
@@ -1129,7 +1139,7 @@ class ItemModal(discord.ui.Modal):
             # Find and remove the item
             removed = False
             for i, existing_item in enumerate(self.parent_view.items_list):
-                if (existing_item['name'] == item_entry['name'] and 
+                if (existing_item['name'] == item_entry['name'] and
                     existing_item['status'] == item_entry['status'] and
                     existing_item['type'] == item_entry['type']):
                     if existing_item['quantity'] > quantity:
@@ -1163,7 +1173,7 @@ class ItemModal(discord.ui.Modal):
 
         # Update the embed
         new_embed = await self.parent_view.ticket_system.create_selling_list_embed(
-            interaction.user, 
+            interaction.user,
             self.parent_view.items_list
         )
 
@@ -1189,9 +1199,9 @@ class PaymentMethodView(discord.ui.View):
         """Setup buttons with conditional back button state"""
         # GamePass Method button
         gamepass_button = discord.ui.Button(
-            label='GamePass Method', 
-            style=discord.ButtonStyle.success, 
-            emoji='<:GamePassLOGO:1410971222715531274>', 
+            label='GamePass Method',
+            style=discord.ButtonStyle.success,
+            emoji='<:GamePassLOGO:1410971222715531274>',
             custom_id='payment_gamepass'
         )
         gamepass_button.callback = self.gamepass_method
@@ -1199,9 +1209,9 @@ class PaymentMethodView(discord.ui.View):
 
         # Group Donation Method button
         group_button = discord.ui.Button(
-            label='Group Donation Method', 
-            style=discord.ButtonStyle.primary, 
-            emoji='👥', 
+            label='Group Donation Method',
+            style=discord.ButtonStyle.primary,
+            emoji='👥',
             custom_id='payment_group'
         )
         group_button.callback = self.group_method
@@ -1209,9 +1219,9 @@ class PaymentMethodView(discord.ui.View):
 
         # Information button
         info_button = discord.ui.Button(
-            label='Information', 
-            style=discord.ButtonStyle.secondary, 
-            emoji='<:InformationLOGO:1410970300841066496>', 
+            label='Information',
+            style=discord.ButtonStyle.secondary,
+            emoji='<:InformationLOGO:1410970300841066496>',
             custom_id='payment_info',
             row=1
         )
@@ -1220,9 +1230,9 @@ class PaymentMethodView(discord.ui.View):
 
         # Back button (disabled if needed)
         back_button = discord.ui.Button(
-            label='Back', 
-            style=discord.ButtonStyle.secondary, 
-            emoji='<:BackLOGO:1410726662328422410>', 
+            label='Back',
+            style=discord.ButtonStyle.secondary,
+            emoji='<:BackLOGO:1410726662328422410>',
             custom_id='payment_back',
             disabled=self.disable_back
         )
@@ -1341,9 +1351,9 @@ class UsernameModal(discord.ui.Modal):
 
             # Create confirmation view
             confirmation_view = AccountConfirmationView(
-                self.parent_view.ticket_system, 
-                self.parent_view.user_id, 
-                self.parent_view.items_list, 
+                self.parent_view.ticket_system,
+                self.parent_view.user_id,
+                self.parent_view.items_list,
                 roblox_user_data,
                 self.method
             )
@@ -1436,7 +1446,7 @@ class AccountConfirmationView(discord.ui.View):
 
             # Create result embed
             result_embed = await self.ticket_system.create_gamepass_result_embed(
-                interaction.user, 
+                interaction.user,
                 gamepass_url
             )
 
@@ -1490,7 +1500,7 @@ class AccountConfirmationView(discord.ui.View):
                 )
 
                 view = GroupTransactionView(
-                    self.ticket_system, interaction.user, self.items_list, 
+                    self.ticket_system, interaction.user, self.items_list,
                     total_robux, self.roblox_user_data['name']
                 )
 
