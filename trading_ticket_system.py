@@ -339,11 +339,28 @@ class TradingTicketSystem:
             quantity = data['quantity']
             robux_price = data['robux_price']
 
+            # Format item name with quantity prefix
             if quantity == 1:
-                items_text.append(f"• 1x {item_name}")
+                full_item_text = f"• 1x {item_name}"
             else:
-                items_text.append(f"• {quantity}x {item_name}")
+                full_item_text = f"• {quantity}x {item_name}"
 
+            # Limit to maximum 40 characters per line, breaking at 32 characters
+            if len(full_item_text) > 32:
+                # Find a good breaking point
+                break_point = 32
+                for i in range(32, min(40, len(full_item_text))):
+                    if full_item_text[i] in [' ', '(', ')', '-']:
+                        break_point = i
+                        break
+
+                line1 = full_item_text[:break_point]
+                line2 = full_item_text[break_point:break_point+40].strip()
+                formatted_item = f"{line1}\n{line2}" if line2 else line1
+            else:
+                formatted_item = full_item_text
+
+            items_text.append(formatted_item)
             prices_text.append(f"{robux_price:,} Robux")
 
         # Add TOTAL
@@ -402,11 +419,28 @@ class TradingTicketSystem:
             quantity = data['quantity']
             robux_price = data['robux_price']
 
+            # Format item name with quantity prefix
             if quantity == 1:
-                items_text.append(f"• 1x {item_name}")
+                full_item_text = f"• 1x {item_name}"
             else:
-                items_text.append(f"• {quantity}x {item_name}")
+                full_item_text = f"• {quantity}x {item_name}"
 
+            # Limit to maximum 40 characters per line, breaking at 32 characters
+            if len(full_item_text) > 32:
+                # Find a good breaking point
+                break_point = 32
+                for i in range(32, min(40, len(full_item_text))):
+                    if full_item_text[i] in [' ', '(', ')', '-']:
+                        break_point = i
+                        break
+
+                line1 = full_item_text[:break_point]
+                line2 = full_item_text[break_point:break_point+40].strip()
+                formatted_item = f"{line1}\n{line2}" if line2 else line1
+            else:
+                formatted_item = full_item_text
+
+            items_text.append(formatted_item)
             prices_text.append(f"{robux_price:,} Robux")
 
         # Add TOTAL
@@ -477,11 +511,28 @@ class TradingTicketSystem:
             quantity = data['quantity']
             robux_price = data['robux_price']
 
+            # Format item name with quantity prefix
             if quantity == 1:
-                items_text.append(f"• 1x {item_name}")
+                full_item_text = f"• 1x {item_name}"
             else:
-                items_text.append(f"• {quantity}x {item_name}")
+                full_item_text = f"• {quantity}x {item_name}"
 
+            # Limit to maximum 40 characters per line, breaking at 32 characters
+            if len(full_item_text) > 32:
+                # Find a good breaking point
+                break_point = 32
+                for i in range(32, min(40, len(full_item_text))):
+                    if full_item_text[i] in [' ', '(', ')', '-']:
+                        break_point = i
+                        break
+
+                line1 = full_item_text[:break_point]
+                line2 = full_item_text[break_point:break_point+40].strip()
+                formatted_item = f"{line1}\n{line2}" if line2 else line1
+            else:
+                formatted_item = full_item_text
+
+            items_text.append(formatted_item)
             prices_text.append(f"{robux_price:,} Robux")
 
         embed.add_field(
@@ -1140,7 +1191,7 @@ class ItemModal(discord.ui.Modal):
                         item_type_detected = match.group(1)
                     else:
                         item_type_detected = "Unknown"
-                
+
                 # Return priority score (lower = higher priority)
                 return priority_order.get(item_type_detected, 999)
 
@@ -1180,7 +1231,7 @@ class ItemModal(discord.ui.Modal):
         if cash_value < 2500000:
             error_embed = await self.parent_view.ticket_system.create_error_embed(
                 "Item Value Too Low",
-                f"Item '{clean_item_name}' has a value below 2.5M and cannot be added to stock!"
+                f"Item '{clean_item_name}' not found in database or has a value below 2.5M!"
             )
             await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
