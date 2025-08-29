@@ -128,7 +128,7 @@ class TradingTicketSystem:
 
             items_column.append("**TOTAL**")
             quantities_column.append("---")
-            prices_column.append(f"**{total_robux:,} <:RobuxLOGO:1410727587134701639> (HORS TAXE)**")
+            prices_column.append(f"**{total_robux:,} <:RobuxLOGO:1410727587134701639> (Incl. Tax)**")
 
             # Create the three fields as columns
             embed.add_field(
@@ -194,10 +194,9 @@ class TradingTicketSystem:
                 per_item_price = robux_price // quantity
                 description_lines.append(f"• {quantity}x {item_name} {robux_price:,} <:RobuxLOGO:1410727587134701639> ({per_item_price:,} robux x{quantity})")
 
-        description_lines.append(f"\nFor a total of {total_robux:,} <:RobuxLOGO:1410727587134701639> (Hors Taxe)")
-        description_lines.append(f"**__The amount with TAX included is {total_with_tax:,} <:RobuxLOGO:1410727587134701639>__**")
+        description_lines.append(f"\nFor a total of {total_robux:,} <:RobuxLOGO:1410727587134701639> (Incl. Tax)")
         description_lines.append("\nChoose the method you want to receive your payment.")
-        description_lines.append("-# The client will always have to pay first, you have access to our vouch salon right here: <#1312591100971843676>")
+        description_lines.append("-# The client will always have to pay first,\nyou have access to our vouch salon right here: <#1312591100971843676>")
 
         embed.description = "\n".join(description_lines)
         embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
@@ -256,7 +255,7 @@ class TradingTicketSystem:
         """Create transaction pending embed for support team"""
         embed = discord.Embed(
             title="Transaction Pending",
-            description=f"Welcome Back <@1300798850788757564>! {seller_user.mention} wants to sell for {total_robux_pretax:,} Robux (HORS TAXE):",
+            description=f"Welcome Back <@1300798850788757564>! {seller_user.mention} wants to sell for {total_robux_pretax:,} Robux (Incl. Tax):",
             color=0xffaa00
         )
 
@@ -1007,15 +1006,6 @@ class InformationView(discord.ui.View):
         self.ticket_system = ticket_system
         self.user_id = user_id
         self.items_list = items_list
-
-    @discord.ui.button(label='How to make GamePass', style=discord.ButtonStyle.success, emoji='🎮', custom_id='info_gamepass_howto')
-    async def how_to_gamepass(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
-            return
-
-        modal = UsernameModal(self, from_info=True)
-        await interaction.response.send_modal(modal)
 
     @discord.ui.button(label='Back', style=discord.ButtonStyle.secondary, emoji='<:BackLOGO:1410726662328422410>', custom_id='info_back')
     async def back_to_payment(self, interaction: discord.Interaction, button: discord.ui.Button):
