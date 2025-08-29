@@ -8,7 +8,7 @@ from datetime import datetime
 class TradingTicketSystem:
     def __init__(self, bot):
         self.bot = bot
-        self.data_file = 'trading_ticket_data.json'
+        self.data_file = 'trhttps://www.roblox.com/fr/game-passading_ticket_data.json'
         self.monitoring_tasks = {}  # Store monitoring tasks
         self.load_data()
 
@@ -196,7 +196,7 @@ class TradingTicketSystem:
 
         description_lines.append(f"\nFor a total of {total_robux:,} <:RobuxLOGO:1410727587134701639> (Incl. Tax)")
         description_lines.append("\nChoose the method you want to receive your payment.")
-        description_lines.append("-# The client will always have to pay first.\n-# Vouch Channel: <#1312591100971843676>")
+        description_lines.append("-# The client will always have to pay first.\n")
 
         embed.description = "\n".join(description_lines)
         embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
@@ -229,7 +229,7 @@ class TradingTicketSystem:
         """Create embed showing gamepass creation link"""
         embed = discord.Embed(
             title="<:SellingLOGO:1410730163607437344> Selling Ticket",
-            description=f"Please use this link to create your GamePass:\n[**Roblox Studio GamePass**]({experience_url})\n\nWe are now monitoring your experience for new GamePass creation...",
+            description=f"Your GamePass has been successfully created!\n**GamePass Name:** {gamepass_name}\n**GamePass Price:** {gamepass_price:,} <:RobuxLOGO:1410727587134701639>\n\nPlease now set your GamePass price by clicking this link:\n[**Edit GamePass Price**]({price_link})\n\nWe are now monitoring your GamePass price changes...",
             color=0x00ff00
         )
         embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
@@ -510,7 +510,7 @@ class TradingTicketSystem:
 
         embed.add_field(
             name="GamePass Link",
-            value=f"https://www.roblox.com/fr/game-pass/{gamepass_id}/",
+            value=f"[**HERE**](https://www.roblox.com/fr/game-pass/{gamepass_id}/)",
             inline=False
         )
 
@@ -523,8 +523,8 @@ class TradingTicketSystem:
     async def create_price_error_embed(self, user, expected_price, actual_price):
         """Create embed when GamePass price is incorrect"""
         embed = discord.Embed(
-            title="Incorrect Price",
-            description=f"Your GamePass price doesn't match the required amount of **{expected_price:,}** Robux.\nYour current price is **{actual_price:,}** Robux.\n\nPlease use the previous link again to update your GamePass price to the correct amount.\n-# Please do not create a new GamePass.",
+            title="<:ErrorLOGO:1387810170155040888> Incorrect Price",
+            description=f"Your GamePass price doesn't match the required amount of **{expected_price:,}** <:RobuxLOGO:1410727587134701639>.\nYour current price is **{actual_price:,}** <:RobuxLOGO:1410727587134701639>.\n\nPlease use the previous link again to update your GamePass price to the correct amount.\n-# Please, do not create a new GamePass.",
             color=0xff0000
         )
         embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
@@ -998,11 +998,12 @@ class ItemModal(discord.ui.Modal):
             await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
 
-        # Use the real stockage system
+        # Find the item like in /add_stock
         stockage_system = StockageSystem()
 
-        # Find the item like in /add_stock
-        best_match, duplicates = stockage_system.find_best_match(self.item_name.value.strip(), "None")
+        # Find the item with specific type preference
+        item_type = "None"
+        best_match, duplicates = stockage_system.find_best_match(self.item_name.value.strip(), item_type)
 
         if not best_match:
             error_embed = await self.parent_view.ticket_system.create_error_embed(
@@ -1012,17 +1013,46 @@ class ItemModal(discord.ui.Modal):
             await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
 
+        # Handle duplicates with priority order
         if len(duplicates) > 1:
-            error_embed = await self.parent_view.ticket_system.create_error_embed(
-                "Multiple Items Found",
-                f"Multiple items found for '{self.item_name.value}'. Please be more specific with the type!"
-            )
-            await interaction.followup.send(embed=error_embed, ephemeral=True)
-            return
+            # Try to find exact match first, then prefer specific order
+            priority_types = ["Vehicle", "Texture", "Body Color", "Rim", "Spoiler", "Weapon Skin", "Tire Sticker", "Tire Style", "Drift", "Furniture", "Horn"]
+
+            # Look for exact name match first
+            exact_matches = []
+            for item_name_dup, item_data_dup in duplicates:
+                clean_name = item_name_dup.split('(')[0].strip().lower()
+                input_name = self.item_name.value.strip().lower()
+                if clean_name == input_name:
+                    exact_matches.append((item_name_dup, item_data_dup))
+
+            if len(exact_matches) == 1:
+                best_match = exact_matches[0]
+            elif len(exact_matches) > 1:
+                # Multiple exact matches, use priority
+                for ptype in priority_types:
+                    for item_name_dup, item_data_dup in exact_matches:
+                        if f"({ptype})" in item_name_dup:
+                            best_match = (item_name_dup, item_data_dup)
+                            break
+                    if best_match:
+                        break
+
+                # If no priority type found, take first exact match
+                if not best_match:
+                    best_match = exact_matches[0]
+            else:
+                # No exact matches, ask for clarification
+                error_embed = await self.parent_view.ticket_system.create_error_embed(
+                    "Multiple Items Found",
+                    f"Multiple items found for '{self.item_name.value}'. Please be more specific with the type!"
+                )
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
+                return
 
         item_name, item_data = best_match[0], best_match[1]
 
-        # Check if item is obtainable
+        # Check if item is obtainable before value check
         clean_item_name = item_name.split('(')[0].strip()
         obtainable_items = self.parent_view.ticket_system.data.get('obtainable', [])
         if clean_item_name in obtainable_items:
@@ -1049,7 +1079,7 @@ class ItemModal(discord.ui.Modal):
             await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
 
-        # Convert value to number (handle format "48 000 000" with normal and Unicode spaces)
+        # Check if item is worth less than 2.5M
         try:
             if isinstance(value_str, str):
                 # Remove all types of spaces (normal, Unicode, etc.) and commas
@@ -1068,7 +1098,6 @@ class ItemModal(discord.ui.Modal):
             await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
 
-        # Check if item is worth less than 2.5M
         if value < 2_500_000:
             error_embed = await self.parent_view.ticket_system.create_error_embed(
                 "Item Information",
