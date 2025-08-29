@@ -10,6 +10,29 @@ class TradingTicketSystem:
         self.bot = bot
         self.data_file = 'trading_ticket_data.json'
         self.monitoring_tasks = {}  # Store monitoring tasks
+        self.special_dict = {
+            # Minuscules
+            "a": "𝐚", "b": "𝐛", "c": "𝐜", "d": "𝐝", "e": "𝐞",
+            "f": "𝐟", "g": "𝐠", "h": "𝐡", "i": "𝐢", "j": "𝐣",
+            "k": "𝐤", "l": "𝐥", "m": "𝐦", "n": "𝐧", "o": "𝐨",
+            "p": "𝐩", "q": "𝐪", "r": "𝐫", "s": "𝐬", "t": "𝐭",
+            "u": "𝐮", "v": "𝐯", "w": "𝐰", "x": "𝐱", "y": "𝐲", "z": "𝐳",
+
+            # Majuscules
+            "A": "𝐀", "B": "𝐁", "C": "𝐂", "D": "𝐃", "E": "𝐄",
+            "F": "𝐅", "G": "𝐆", "H": "𝐇", "I": "𝐈", "J": "𝐉",
+            "K": "𝐊", "L": "𝐋", "M": "𝐌", "N": "𝐍", "O": "𝐎",
+            "P": "𝐏", "Q": "𝐐", "R": "𝐑", "S": "𝐒", "T": "𝐓",
+            "U": "𝐔", "V": "𝐕", "W": "𝐖", "X": "𝐗", "Y": "𝐘", "Z": "𝐙",
+
+            # Chiffres
+            "0": "𝟎", "1": "𝟏", "2": "𝟐", "3": "𝟑", "4": "𝟒",
+            "5": "𝟓", "6": "𝟔", "7": "𝟕", "8": "𝟖", "9": "𝟗",
+
+            # Caractères spéciaux
+            ".": ".",
+            "_": "_"
+        }
         self.load_data()
 
     def load_data(self):
@@ -726,6 +749,13 @@ class TradingTicketSystem:
         else:
             return 90  # 90 robux per million
 
+    def convert_to_special_font(self, text):
+        """Convert text to special Unicode font"""
+        converted = ""
+        for char in text:
+            converted += self.special_dict.get(char, char)
+        return converted
+
     async def create_error_embed(self, title, description):
         """Create error embed for various error messages"""
         embed = discord.Embed(
@@ -963,8 +993,9 @@ class TicketPanelView(discord.ui.View):
         for role in support_roles:
             overwrites[role] = discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_messages=True)
 
-        # Create channel
-        channel_name = f"『🎟️』Ticket・{interaction.user.name.lower()}"
+        # Create channel with special font
+        username_special = self.ticket_system.convert_to_special_font(interaction.user.name.lower())
+        channel_name = f"『🎟️』𝐓𝐢𝐜𝐤𝐞𝐭・{username_special}"
         ticket_channel = await guild.create_text_channel(
             name=channel_name,
             overwrites=overwrites,
