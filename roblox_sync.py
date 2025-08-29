@@ -1,4 +1,3 @@
-
 import os
 import requests
 from dotenv import load_dotenv
@@ -11,13 +10,13 @@ class RobloxClient:
         self.cookie = os.getenv('ROBLOX_COOKIE')
         if not self.cookie:
             raise ValueError("ROBLOX_COOKIE is not defined in .env file")
-        
+
         self.session = requests.Session()
         self.session.cookies.set('.ROBLOSECURITY', self.cookie)
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         })
-    
+
     def get_user_info(self):
         """Get authenticated user information"""
         try:
@@ -30,7 +29,7 @@ class RobloxClient:
         except Exception as e:
             print(f"Error: {e}")
             return None
-    
+
     def get_user_id_by_username(self, username):
         """Get user ID by username"""
         try:
@@ -39,7 +38,7 @@ class RobloxClient:
                 json={'usernames': [username]},
                 headers={'Content-Type': 'application/json'}
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
                 if data.get('data') and len(data['data']) > 0:
@@ -48,13 +47,13 @@ class RobloxClient:
         except Exception as e:
             print(f"Error searching user: {e}")
             return None
-    
+
     def get_user_experiences(self, user_id):
         """Get all experiences created by a user"""
         try:
             experiences = []
             cursor = ""
-            
+
             while True:
                 url = f'https://games.roblox.com/v2/users/{user_id}/games'
                 params = {
@@ -62,24 +61,24 @@ class RobloxClient:
                     'sortOrder': 'Asc',
                     'limit': 50
                 }
-                
+
                 if cursor:
                     params['cursor'] = cursor
-                
+
                 response = self.session.get(url, params=params)
-                
+
                 if response.status_code == 200:
                     try:
                         data = response.json()
                     except ValueError:
                         print("Error: Invalid API response (not JSON)")
                         break
-                    
+
                     # Check if data exists and contains data
                     if data and isinstance(data, dict):
                         if data.get('data') and isinstance(data['data'], list):
                             experiences.extend(data['data'])
-                        
+
                         # Check if there are more pages
                         if data.get('nextPageCursor'):
                             cursor = data['nextPageCursor']
@@ -88,7 +87,7 @@ class RobloxClient:
                     else:
                         print("Unexpected data structure from API")
                         break
-                        
+
                 elif response.status_code == 401:
                     print("Authentication error - Invalid or expired cookie")
                     break
@@ -98,12 +97,12 @@ class RobloxClient:
                 else:
                     print(f"API Error: {response.status_code} - {response.text[:100]}")
                     break
-            
+
             return experiences
         except Exception as e:
             print(f"Error getting experiences: {e}")
             return []
-    
+
     def get_robux_balance(self):
         """Get Robux balance"""
         try:
@@ -117,7 +116,7 @@ class RobloxClient:
         except Exception as e:
             print(f"Error getting balance: {e}")
             return None
-    
+
     def get_friends_count(self):
         """Get friends count"""
         try:
@@ -132,26 +131,87 @@ class RobloxClient:
             print(f"Error getting friends count: {e}")
             return None
 
+    def get_user_avatar(self, user_id):
+        """Get user avatar URL"""
+        try:
+            # Get avatar thumbnail
+            url = f"https://thumbnails.roblox.com/v1/users/avatar-headshot"
+            params = {
+                'userIds': user_id,
+                'size': '420x420',
+                'format': 'Png',
+                'isCircular': 'false'
+            }
+
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+
+            data = response.json()
+            if data.get('data') and len(data['data']) > 0:
+                return data['data'][0].get('imageUrl')
+
+            return None
+
+        except Exception as e:
+            print(f"Erreur lors de la récupération de l'avatar: {e}")
+            return None
+
+    def is_user_in_group(self, user_id, group_id):
+        """Check if user is in a specific group"""
+        try:
+            url = f"https://groups.roblox.com/v2/users/{user_id}/groups/roles"
+
+            response = requests.get(url)
+            response.raise_for_status()
+
+            data = response.json()
+
+            if 'data' in data:
+                for group in data['data']:
+                    if group.get('group', {}).get('id') == group_id:
+                        return True
+
+            return False
+
+        except Exception as e:
+            print(f"Erreur lors de la vérification du groupe: {e}")
+            return False
+
+    def get_user_details(self, user_id):
+        """Get detailed user information"""
+        try:
+            url = f"https://users.roblox.com/v1/users/{user_id}"
+
+            response = requests.get(url)
+            response.raise_for_status()
+
+            return response.json()
+
+        except Exception as e:
+            print(f"Erreur lors de la récupération des détails utilisateur: {e}")
+            return {}
+
+
 def main():
     try:
         # Create Roblox client instance
         client = RobloxClient()
-        
+
         # Get user information
         user_info = client.get_user_info()
-        
+
         if user_info:
             print("✅ Connected to Roblox!")
             print(f"👤 Username: {user_info.get('name', 'Unknown')}")
-            
+
             # Get Robux balance
             robux = client.get_robux_balance()
             if robux is not None:
                 print(f"💰 Robux Balance: {robux}")
-                
+
         else:
             print("❌ Connection failed. Check your Roblox cookie.")
-            
+
     except ValueError as e:
         print(f"❌ Configuration error: {e}")
         print("📝 Make sure to set ROBLOX_COOKIE in your .env file")
