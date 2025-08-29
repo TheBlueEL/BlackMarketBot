@@ -8,7 +8,7 @@ from datetime import datetime
 class TradingTicketSystem:
     def __init__(self, bot):
         self.bot = bot
-        self.data_file = 'trhttps://www.roblox.com/fr/game-passading_ticket_data.json'
+        self.data_file = 'trading_ticket_data.json'
         self.monitoring_tasks = {}  # Store monitoring tasks
         self.load_data()
 
@@ -502,9 +502,21 @@ class TradingTicketSystem:
             inline=True
         )
 
+        # Get user ID for clickable username link
+        try:
+            from roblox_sync import RobloxClient
+            client = RobloxClient()
+            user_id = client.get_user_id_by_username(seller_username)
+            if user_id:
+                username_link = f"[**{seller_username}**](https://www.roblox.com/users/{user_id}/profile)"
+            else:
+                username_link = seller_username
+        except:
+            username_link = seller_username
+
         embed.add_field(
-            name="Roblox Username",
-            value=seller_username,
+            name="Roblox Username", 
+            value=username_link,
             inline=False
         )
 
@@ -543,6 +555,72 @@ class TradingTicketSystem:
         if self.bot.user.avatar:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
+
+    def parse_item_with_hyperchrome(self, item_input):
+        """Parse item input to detect hyperchromes and types like /add_stock"""
+        try:
+            with open('item_request.json', 'r', encoding='utf-8') as f:
+                item_data = json.load(f)
+        except FileNotFoundError:
+            return {'name': item_input, 'type': 'None', 'is_hyperchrome': False}
+        
+        # Check for hyperchrome patterns first
+        hyper_data = item_data.get('hyper', {})
+        for hyper_name, aliases in hyper_data.items():
+            for alias in aliases:
+                if alias.lower() == item_input.lower():
+                    # Found hyperchrome match, get from API with 2023 year
+                    try:
+                        with open('API_JBChangeLogs.json', 'r', encoding='utf-8') as f:
+                            api_data = json.load(f)
+                        
+                        # Look for hyperchrome with 2023 year
+                        hyperchrome_name_2023 = f"{hyper_name} (2023)"
+                        if hyperchrome_name_2023 in api_data:
+                            return {
+                                'name': hyper_name,  # Display name without year
+                                'type': 'Hyperchrome',
+                                'is_hyperchrome': True,
+                                'api_name': hyperchrome_name_2023
+                            }
+                        
+                        # Fallback to original name if 2023 not found
+                        if hyper_name in api_data:
+                            return {
+                                'name': hyper_name,
+                                'type': 'Hyperchrome', 
+                                'is_hyperchrome': True,
+                                'api_name': hyper_name
+                            }
+                    except FileNotFoundError:
+                        pass
+                    
+                    return {
+                        'name': hyper_name,
+                        'type': 'Hyperchrome',
+                        'is_hyperchrome': True
+                    }
+        
+        # Check for type patterns
+        type_data = item_data.get('type', {})
+        detected_type = 'None'
+        clean_name = item_input
+        
+        for type_name, aliases in type_data.items():
+            for alias in aliases:
+                if alias.lower() in item_input.lower():
+                    detected_type = type_name
+                    # Remove type from name
+                    clean_name = item_input.replace(alias, '').strip()
+                    break
+            if detected_type != 'None':
+                break
+        
+        return {
+            'name': clean_name,
+            'type': detected_type,
+            'is_hyperchrome': False
+        }
 
     def calculate_robux_rate(self, total_millions):
         """Calculate Robux rate based on total value in millions"""
@@ -998,12 +1076,14 @@ class ItemModal(discord.ui.Modal):
             await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
 
-        # Find the item like in /add_stock
+        # Parse item name using item_request.json like /add_stock
+        parsed_item = self.parse_item_with_hyperchrome(self.item_name.value.strip())
+        
         stockage_system = StockageSystem()
-
+        
         # Find the item with specific type preference
-        item_type = "None"
-        best_match, duplicates = stockage_system.find_best_match(self.item_name.value.strip(), item_type)
+        item_type = parsed_item.get('type', 'None')
+        best_match, duplicates = stockage_system.find_best_match(parsed_item['name'], item_type)
 
         if not best_match:
             error_embed = await self.parent_view.ticket_system.create_error_embed(
@@ -1054,7 +1134,13 @@ class ItemModal(discord.ui.Modal):
 
         # Check if item is obtainable before value check
         clean_item_name = item_name.split('(')[0].strip()
-        obtainable_items = self.parent_view.ticket_system.data.get('obtainable', [])
+        
+        # Load obtainable items from data file
+        try:
+            obtainable_items = self.parent_view.ticket_system.data.get('obtainable', [])
+        except:
+            obtainable_items = []
+        
         if clean_item_name in obtainable_items:
             error_embed = await self.parent_view.ticket_system.create_error_embed(
                 "Item Information",
@@ -1618,8 +1704,9 @@ class AcceptTransactionView(discord.ui.View):
 
     @discord.ui.button(label='Accept', style=discord.ButtonStyle.success, emoji='<:ConfirmLOGO:1410970202191171797>', custom_id='accept_transaction')
     async def accept_transaction(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Check if user has appropriate permissions (you can modify this)
-        if not interaction.user.guild_permissions.manage_guild:
+        # Check if user has the required role
+        required_role_id = 1300798850788757564
+        if not any(role.id == required_role_id for role in interaction.user.roles):
             await interaction.response.send_message("You don't have permission to accept transactions!", ephemeral=True)
             return
 
@@ -1633,9 +1720,25 @@ class AcceptTransactionView(discord.ui.View):
         accept_embed = await self.ticket_system.create_purchase_accepted_embed(self.user)
         await interaction.response.send_message(embed=accept_embed)
 
-        # Disable the button
+        # Disable the buttons
         self.clear_items()
         await interaction.edit_original_response(view=self)
+
+    @discord.ui.button(label='Refuse', style=discord.ButtonStyle.danger, emoji='<:RefuseLOGO:1410970076102901790>', custom_id='refuse_gamepass_transaction')
+    async def refuse_transaction(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Check if user has the required role
+        required_role_id = 1300798850788757564
+        if not any(role.id == required_role_id for role in interaction.user.roles):
+            await interaction.response.send_message("You don't have permission to refuse transactions!", ephemeral=True)
+            return
+
+        modal = RefuseReasonModal(self.user, self.channel)
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label='Sell Information', style=discord.ButtonStyle.secondary, emoji='<:InformationLOGO:1410970300841066496>', custom_id='gamepass_sell_info')
+    async def sell_information(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # This would require access to the items list, we'll implement this later
+        await interaction.response.send_message("Sell information feature will be implemented.", ephemeral=True)
 
 # Import du vrai système de stockage
 import sys
