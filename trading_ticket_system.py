@@ -10,6 +10,7 @@ class TradingTicketSystem:
     def __init__(self, bot):
         self.bot = bot
         self.data_file = 'trading_ticket_data.json'
+        self.monitoring_tasks = {}  # Store monitoring tasks
         self.load_data()
 
     def load_data(self):
@@ -76,7 +77,7 @@ class TradingTicketSystem:
             description="Please select which items you wish to sell.",
             color=0xff6b35
         )
-        embed.set_footer(text=f"{self.bot.user.name} - Trading Department")
+        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
         if self.bot.user.avatar:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
@@ -149,7 +150,7 @@ class TradingTicketSystem:
                 inline=True
             )
 
-        embed.set_footer(text=f"{self.bot.user.name} - Trading Department")
+        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
         if self.bot.user.avatar:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
@@ -200,7 +201,7 @@ class TradingTicketSystem:
         description_lines.append("-# The client will always have to pay first, you have access to our vouch salon right here: <#1312591100971843676>")
         
         embed.description = "\n".join(description_lines)
-        embed.set_footer(text=f"{self.bot.user.name} - Trading Department")
+        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
         if self.bot.user.avatar:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
@@ -221,7 +222,7 @@ class TradingTicketSystem:
         ]
         
         embed.description = "\n".join(description_lines)
-        embed.set_footer(text=f"{self.bot.user.name} - Trading Department")
+        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
         if self.bot.user.avatar:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
@@ -230,10 +231,121 @@ class TradingTicketSystem:
         """Create embed showing gamepass creation link"""
         embed = discord.Embed(
             title="<:SellingLOGO:1410730163607437344> Selling Ticket",
-            description=f"Please use this link to create your GamePass:\n\n [{user}'s GamePass]({experience_url})",
+            description=f"Please use this link to create your GamePass:\n[**Roblox Studio GamePass**]({experience_url})\n\nWe are now monitoring your experience for new GamePass creation...",
             color=0x00ff00
         )
-        embed.set_footer(text=f"{self.bot.user.name} - Trading Department")
+        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
+        if self.bot.user.avatar:
+            embed.set_thumbnail(url=self.bot.user.avatar.url)
+        return embed
+
+    async def create_gamepass_success_embed(self, user, gamepass_name, gamepass_price):
+        """Create embed when GamePass is successfully created"""
+        embed = discord.Embed(
+            title="<:SellingLOGO:1410730163607437344> GamePass Créé",
+            description=f"Votre GamePass à été crée avec Succès!\n**GamePass Name:** {gamepass_name}\n**GamePass Price:** {gamepass_price:,} <:RobuxLOGO:1410727587134701639>\n\nVeuillez attendre que notre équipe soit disponible afin de pouvoir effectuer cette transaction.",
+            color=0x00ff00
+        )
+        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
+        if self.bot.user.avatar:
+            embed.set_thumbnail(url=self.bot.user.avatar.url)
+        return embed
+
+    async def create_transaction_pending_embed(self, seller_user, seller_username, gamepass_id, items_list, total_robux):
+        """Create transaction pending embed for support team"""
+        embed = discord.Embed(
+            title="Transaction en attente",
+            description=f"Welcome Back <@1300798850788757564>! {seller_user.mention} veut vendre pour {total_robux:,} Robux:",
+            color=0xffaa00
+        )
+
+        # Group items for display
+        grouped_items = {}
+        for item in items_list:
+            key = f"{item['name']} ({item['type']}) ({item['status']})"
+            if key not in grouped_items:
+                grouped_items[key] = {'quantity': 0, 'robux_price': 0}
+            
+            # Calculate individual robux price for this item
+            total_value = sum(i['value'] * i['quantity'] for i in items_list)
+            total_millions = total_value / 1_000_000
+            robux_rate = self.calculate_robux_rate(total_millions)
+            item_robux = int((item['value'] * item['quantity'] / 1_000_000) * robux_rate)
+            
+            grouped_items[key]['quantity'] += item['quantity']
+            grouped_items[key]['robux_price'] += item_robux
+
+        # Create items list for embed
+        items_text = []
+        prices_text = []
+        
+        for item_name, data in grouped_items.items():
+            quantity = data['quantity']
+            robux_price = data['robux_price']
+            
+            if quantity == 1:
+                items_text.append(f"• 1x {item_name}")
+            else:
+                items_text.append(f"• {quantity}x {item_name}")
+            
+            prices_text.append(f"{robux_price:,} Robux")
+
+        embed.add_field(
+            name="Items",
+            value="\n".join(items_text),
+            inline=True
+        )
+
+        embed.add_field(
+            name="Prices",
+            value="\n".join(prices_text),
+            inline=True
+        )
+
+        embed.add_field(
+            name="\u200b",
+            value="\u200b",
+            inline=True
+        )
+
+        embed.add_field(
+            name="Roblox Username",
+            value=seller_username,
+            inline=False
+        )
+
+        embed.add_field(
+            name="GamePass Link",
+            value=f"https://www.roblox.com/fr/game-pass/{gamepass_id}/",
+            inline=False
+        )
+
+        embed.set_footer(text=f"{self.bot.user.name} - Transaction System")
+        if self.bot.user.avatar:
+            embed.set_thumbnail(url=self.bot.user.avatar.url)
+        
+        return embed
+
+    async def create_price_error_embed(self, user, expected_price, actual_price):
+        """Create embed when GamePass price is incorrect"""
+        embed = discord.Embed(
+            title="Prix Incorrect",
+            description=f"Votre gamepass n'est pas conforme aux prix d'origine qui est de {expected_price:,} robux.\nLe votre est de {actual_price:,} robux. Veuillez cliquer sur le lien précédent à nouveau pour changer la valeur du gamepass.\n-# Veuillez ne pas en créer un nouveau.",
+            color=0xff0000
+        )
+        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
+        if self.bot.user.avatar:
+            embed.set_thumbnail(url=self.bot.user.avatar.url)
+        return embed
+
+    async def create_purchase_accepted_embed(self, user):
+        """Create embed when purchase is accepted"""
+        embed = discord.Embed(
+            title="Achat Accepté",
+            description="Notre équipe a accepté votre achat nous allons maintenant procéder à la transaction.",
+            color=0x00ff00
+        )
+        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
         if self.bot.user.avatar:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
@@ -254,10 +366,158 @@ class TradingTicketSystem:
             description=description,
             color=0xff0000
         )
-        embed.set_footer(text=f"{self.bot.user.name} - Trading Department")
+        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
         if self.bot.user.avatar:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
+
+    async def start_gamepass_monitoring(self, channel, user, username, experience_id, items_list, expected_price):
+        """Start monitoring for new GamePass creation"""
+        try:
+            from roblox_gamepasslink import GamePassLink
+            
+            client = GamePassLink()
+            
+            # Get initial GamePass list
+            initial_gamepasses = client.get_game_passes(experience_id)
+            initial_ids = [gp.get('id') for gp in initial_gamepasses if gp.get('id')]
+            
+            # Create monitoring task
+            task_key = f"{channel.id}_{user.id}"
+            if task_key in self.monitoring_tasks:
+                self.monitoring_tasks[task_key].cancel()
+            
+            # Start monitoring task
+            self.monitoring_tasks[task_key] = asyncio.create_task(
+                self._monitor_gamepass_creation(
+                    channel, user, username, experience_id, items_list, expected_price, initial_ids
+                )
+            )
+            
+        except Exception as e:
+            print(f"Error starting GamePass monitoring: {e}")
+
+    async def _monitor_gamepass_creation(self, channel, user, username, experience_id, items_list, expected_price, initial_ids):
+        """Monitor for new GamePass creation and price changes"""
+        try:
+            from roblox_gamepasslink import GamePassLink
+            
+            client = GamePassLink()
+            
+            while True:
+                await asyncio.sleep(5)  # Check every 5 seconds
+                
+                try:
+                    current_gamepasses = client.get_game_passes(experience_id)
+                    current_ids = [gp.get('id') for gp in current_gamepasses if gp.get('id')]
+                    
+                    # Check for new GamePass
+                    new_gamepasses = [gp_id for gp_id in current_ids if gp_id not in initial_ids]
+                    
+                    if new_gamepasses:
+                        # Found new GamePass, get its details
+                        new_gamepass_id = new_gamepasses[0]  # Take the first new one
+                        
+                        # Find the GamePass details
+                        new_gamepass = None
+                        for gp in current_gamepasses:
+                            if gp.get('id') == new_gamepass_id:
+                                new_gamepass = gp
+                                break
+                        
+                        if new_gamepass:
+                            gamepass_name = new_gamepass.get('name', 'Unknown')
+                            gamepass_price = new_gamepass.get('price')
+                            
+                            # Send creation success embed
+                            success_embed = await self.create_gamepass_success_embed(
+                                user, gamepass_name, gamepass_price or 0
+                            )
+                            await channel.send(embed=success_embed)
+                            
+                            # Wait 3 seconds then send transaction pending
+                            await asyncio.sleep(3)
+                            
+                            # Calculate total robux for transaction
+                            total_value = sum(item['value'] * item['quantity'] for item in items_list)
+                            total_millions = total_value / 1_000_000
+                            robux_rate = self.calculate_robux_rate(total_millions)
+                            total_robux_with_tax = int(total_millions * robux_rate * 0.70)
+                            
+                            # Send transaction pending embed (ping outside)
+                            pending_embed = await self.create_transaction_pending_embed(
+                                user, username, new_gamepass_id, items_list, total_robux_with_tax
+                            )
+                            
+                            # Create accept button view
+                            accept_view = AcceptTransactionView(self, channel, user)
+                            
+                            await channel.send(
+                                content="<@1300798850788757564>",
+                                embed=pending_embed,
+                                view=accept_view
+                            )
+                            
+                            # Start price monitoring for this GamePass
+                            await self._monitor_gamepass_price(
+                                channel, user, new_gamepass_id, expected_price
+                            )
+                            
+                            # Stop monitoring for new GamePass creation
+                            break
+                            
+                except Exception as e:
+                    print(f"Error in GamePass monitoring: {e}")
+                    await asyncio.sleep(10)  # Wait longer on error
+                    
+        except asyncio.CancelledError:
+            # Task was cancelled, clean up
+            pass
+        except Exception as e:
+            print(f"Error in GamePass creation monitoring: {e}")
+
+    async def _monitor_gamepass_price(self, channel, user, gamepass_id, expected_price):
+        """Monitor GamePass price changes"""
+        try:
+            from roblox_gamepasslink import GamePassLink
+            
+            client = GamePassLink()
+            
+            while True:
+                await asyncio.sleep(5)  # Check every 5 seconds
+                
+                try:
+                    # Get GamePass details directly
+                    gamepass_details = client.get_game_pass_details(gamepass_id)
+                    
+                    if gamepass_details:
+                        current_price = gamepass_details.get('price')
+                        
+                        if current_price is not None and current_price != 0:  # Price was set
+                            if current_price == expected_price:
+                                # Price is correct, everything is good
+                                # The transaction pending embed was already sent
+                                break
+                            else:
+                                # Price is incorrect, send error
+                                error_embed = await self.create_price_error_embed(
+                                    user, expected_price, current_price
+                                )
+                                await channel.send(
+                                    content=user.mention,
+                                    embed=error_embed
+                                )
+                                # Continue monitoring for price changes
+                                
+                except Exception as e:
+                    print(f"Error in GamePass price monitoring: {e}")
+                    await asyncio.sleep(10)  # Wait longer on error
+                    
+        except asyncio.CancelledError:
+            # Task was cancelled, clean up
+            pass
+        except Exception as e:
+            print(f"Error in GamePass price monitoring: {e}")
 
 class TicketPanelView(discord.ui.View):
     def __init__(self, ticket_system):
@@ -788,6 +1048,12 @@ class UsernameModal(discord.ui.Modal):
             # Create the GamePass creation link
             gamepass_url = f"https://create.roblox.com/dashboard/creations/experiences/{universe_id}/monetization/passes"
             
+            # Calculate expected price with tax
+            total_value = sum(item['value'] * item['quantity'] for item in self.parent_view.items_list)
+            total_millions = total_value / 1_000_000
+            robux_rate = self.parent_view.ticket_system.calculate_robux_rate(total_millions)
+            expected_price = int(total_millions * robux_rate * 0.70)  # With tax
+            
             # Create result embed
             result_embed = await self.parent_view.ticket_system.create_gamepass_result_embed(
                 interaction.user, 
@@ -795,6 +1061,16 @@ class UsernameModal(discord.ui.Modal):
             )
             
             await interaction.edit_original_response(embed=result_embed, view=None)
+            
+            # Start GamePass monitoring
+            await self.parent_view.ticket_system.start_gamepass_monitoring(
+                interaction.channel,
+                interaction.user,
+                username,
+                universe_id,
+                self.parent_view.items_list,
+                expected_price
+            )
             
         except ImportError:
             error_embed = await self.parent_view.ticket_system.create_error_embed(
@@ -808,6 +1084,34 @@ class UsernameModal(discord.ui.Modal):
                 f"An error occurred while processing your request: {str(e)}"
             )
             await interaction.followup.send(embed=error_embed, ephemeral=True)
+
+class AcceptTransactionView(discord.ui.View):
+    def __init__(self, ticket_system, channel, user):
+        super().__init__(timeout=None)
+        self.ticket_system = ticket_system
+        self.channel = channel
+        self.user = user
+
+    @discord.ui.button(label='Accepter', style=discord.ButtonStyle.success, emoji='✅', custom_id='accept_transaction')
+    async def accept_transaction(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Check if user has appropriate permissions (you can modify this)
+        if not interaction.user.guild_permissions.manage_guild:
+            await interaction.response.send_message("You don't have permission to accept transactions!", ephemeral=True)
+            return
+
+        # Allow user to speak in the channel
+        overwrites = self.channel.overwrites
+        if self.user in overwrites:
+            overwrites[self.user].send_messages = True
+            await self.channel.edit(overwrites=overwrites)
+
+        # Send acceptance embed
+        accept_embed = await self.ticket_system.create_purchase_accepted_embed(self.user)
+        await interaction.response.send_message(embed=accept_embed)
+
+        # Disable the button
+        self.clear_items()
+        await interaction.edit_original_response(view=self)
 
 # Import du vrai système de stockage
 import sys
