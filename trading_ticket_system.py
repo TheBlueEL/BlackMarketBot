@@ -707,9 +707,13 @@ class TradingTicketSystem:
 
     def _get_hyperchrome_from_api(self, hyper_name, api_data):
         """Get hyperchrome from API, prioritizing 2023 version"""
+        print(f"DEBUG: Looking for hyperchrome '{hyper_name}' in API")
+        
         # Look for hyperchrome with 2023 year first
         hyperchrome_name_2023 = f"{hyper_name} 2023 (HyperChrome)"
+        print(f"DEBUG: Trying to find '{hyperchrome_name_2023}'")
         if hyperchrome_name_2023 in api_data:
+            print(f"DEBUG: Found 2023 version: {hyperchrome_name_2023}")
             return {
                 'name': hyper_name,  # Display name without (HyperChrome)
                 'type': 'HyperChrome',
@@ -719,7 +723,9 @@ class TradingTicketSystem:
 
         # Try without year but with HyperChrome tag
         hyperchrome_name_normal = f"{hyper_name} (HyperChrome)"
+        print(f"DEBUG: Trying to find '{hyperchrome_name_normal}'")
         if hyperchrome_name_normal in api_data:
+            print(f"DEBUG: Found normal version: {hyperchrome_name_normal}")
             return {
                 'name': hyper_name,
                 'type': 'HyperChrome',
@@ -727,8 +733,21 @@ class TradingTicketSystem:
                 'api_name': hyperchrome_name_normal
             }
 
+        # Check all API keys that contain the hyper name
+        print(f"DEBUG: Searching all API keys containing '{hyper_name}'")
+        for api_key in api_data.keys():
+            if hyper_name in api_key and "(HyperChrome)" in api_key:
+                print(f"DEBUG: Found matching key: {api_key}")
+                return {
+                    'name': hyper_name,
+                    'type': 'HyperChrome',
+                    'is_hyperchrome': True,
+                    'api_name': api_key
+                }
+
         # Fallback to original name if found in API
         if hyper_name in api_data:
+            print(f"DEBUG: Found exact match: {hyper_name}")
             return {
                 'name': hyper_name,
                 'type': 'HyperChrome',
@@ -736,6 +755,7 @@ class TradingTicketSystem:
                 'api_name': hyper_name
             }
 
+        print(f"DEBUG: No match found for '{hyper_name}'")
         # Return even if not found in API
         return {
             'name': hyper_name,
