@@ -196,7 +196,7 @@ class TradingTicketSystem:
 
         description_lines.append(f"\nFor a total of {total_robux:,} <:RobuxLOGO:1410727587134701639> (Incl. Tax)")
         description_lines.append("\nChoose the method you want to receive your payment.")
-        description_lines.append("-# The client will always have to pay first,\nyou have access to our vouch salon right here: <#1312591100971843676>")
+        description_lines.append("-# The client will always have to pay first.\n-# Vouch Channel: <#1312591100971843676>")
 
         embed.description = "\n".join(description_lines)
         embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
@@ -1180,6 +1180,4 @@ def setup_trading_ticket_system(bot):
         view = TicketPanelView(ticket_system)
 
         await target_channel.send(embed=embed, view=view)
-        await interaction.response.send_message(f"Trading ticket panel created in {target_channel.mention}!", ephemeral=True)
-
     return ticket_system
