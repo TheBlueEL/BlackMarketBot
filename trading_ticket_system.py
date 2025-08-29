@@ -232,9 +232,203 @@ class TradingTicketSystem:
             description=f"Please use this link to create your GamePass:\n[**Roblox Studio GamePass**]({experience_url})\n\nWe are now monitoring your experience for new GamePass creation...",
             color=0x00ff00
         )
-        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
+        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
         if self.bot.user.avatar:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
+        return embed
+
+    async def create_account_confirmation_embed(self, roblox_user_data):
+        """Create account confirmation embed"""
+        embed = discord.Embed(
+            title="Account Confirmation",
+            color=0x0099ff
+        )
+        
+        display_name = roblox_user_data.get('displayName', 'N/A')
+        username = roblox_user_data.get('name', 'N/A')
+        
+        embed.description = f"**Display Name:** {display_name}\n**Username:** {username}"
+        
+        # Set profile picture as thumbnail
+        if roblox_user_data.get('avatar_url'):
+            embed.set_thumbnail(url=roblox_user_data['avatar_url'])
+        
+        embed.set_footer(text=f"{self.bot.user.name} - Account Confirmation", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
+        return embed
+
+    async def create_group_join_embed(self):
+        """Create embed for group joining requirement"""
+        embed = discord.Embed(
+            title="Transaction Method",
+            description="Please click on the link below to join our group:\n[**Group Donation Method**](https://www.roblox.com/communities/34785441/about)",
+            color=0x0099ff
+        )
+        embed.set_footer(text=f"{self.bot.user.name} - Transaction Method", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
+        if self.bot.user.avatar:
+            embed.set_thumbnail(url=self.bot.user.avatar.url)
+        return embed
+
+    async def create_waiting_period_embed(self, roblox_username, end_timestamp):
+        """Create embed for 2-week waiting period"""
+        embed = discord.Embed(
+            title="Welcome to our Group!",
+            description=f"Welcome @{roblox_username}, you have just joined our group!\nPlease wait 2 weeks to proceed with payment. Once the time has elapsed, you will be automatically pinged in this channel.",
+            color=0x00ff88
+        )
+        
+        faq_text = """
+**Why wait 2 weeks?**
+➤ To avoid fraud, Roblox has implemented a waiting period for the **Group Payouts** feature. This waiting period has a maximum duration of 2 weeks.
+
+**Are our services reliable?**
+➤ Our services are 100% reliable, we collect hundreds and hundreds of vouches visible in channel <#1312591100971843676>
+
+**Why choose us?**
+➤ We have **THE highest Robux rate/million** which can go up to **90 robux/million** depending on the quantity of items you sell to us.
+"""
+        
+        embed.add_field(name="F.A.Q", value=faq_text, inline=False)
+        embed.add_field(name="Time remaining:", value=f"<t:{end_timestamp}:R>", inline=False)
+        
+        embed.set_footer(text=f"{self.bot.user.name} - Group Donation", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
+        if self.bot.user.avatar:
+            embed.set_thumbnail(url=self.bot.user.avatar.url)
+        return embed
+
+    async def create_transaction_ready_embed(self, items_list, total_robux):
+        """Create embed when 2-week period is complete"""
+        embed = discord.Embed(
+            title="Transaction Ready",
+            description=f"The 2-week period has elapsed, you can now proceed with the transaction of your items.\n\n**Total Amount:** {total_robux:,} Robux\n**Payment Link:** [**HERE**](https://www.roblox.com/group/configure?id=34785441#!/revenue/payouts)",
+            color=0x00ff00
+        )
+        embed.set_footer(text=f"{self.bot.user.name} - Transaction Ready", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
+        if self.bot.user.avatar:
+            embed.set_thumbnail(url=self.bot.user.avatar.url)
+        return embed
+
+    async def create_group_transaction_embed(self, user, items_list, total_robux):
+        """Create transaction embed for users already in group"""
+        embed = discord.Embed(
+            title="Transaction to be Processed",
+            description=f"Your request has been received, please wait for our teams to be available.\n\n**Total Amount:** {total_robux:,} Robux\n**Payment Link:** [**HERE**](https://www.roblox.com/group/configure?id=34785441#!/revenue/payouts)",
+            color=0xffaa00
+        )
+
+        # Create items list for display
+        items_text = []
+        prices_text = []
+
+        # Group items for display
+        grouped_items = {}
+        for item in items_list:
+            key = f"{item['name']} ({item['type']}) ({item['status']})"
+            if key not in grouped_items:
+                grouped_items[key] = {'quantity': 0, 'robux_price': 0}
+
+            # Calculate individual robux price for this item
+            total_value = sum(i['value'] * i['quantity'] for i in items_list)
+            total_millions = total_value / 1_000_000
+            robux_rate = self.calculate_robux_rate(total_millions)
+            item_robux = int((item['value'] * item['quantity'] / 1_000_000) * robux_rate)
+
+            grouped_items[key]['quantity'] += item['quantity']
+            grouped_items[key]['robux_price'] += item_robux
+
+        for item_name, data in grouped_items.items():
+            quantity = data['quantity']
+            robux_price = data['robux_price']
+
+            if quantity == 1:
+                items_text.append(f"• 1x {item_name}")
+            else:
+                items_text.append(f"• {quantity}x {item_name}")
+
+            prices_text.append(f"{robux_price:,} Robux")
+
+        # Add TOTAL
+        items_text.append("**TOTAL**")
+        prices_text.append(f"**{total_robux:,} Robux**")
+
+        embed.add_field(
+            name="Item",
+            value="\n".join(items_text),
+            inline=True
+        )
+
+        embed.add_field(
+            name="Prices",
+            value="\n".join(prices_text),
+            inline=True
+        )
+
+        embed.set_footer(text=f"{self.bot.user.name} - Group Transaction", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
+        if self.bot.user.avatar:
+            embed.set_thumbnail(url=self.bot.user.avatar.url)
+
+        return embed
+
+    async def create_sell_info_embed(self, items_list):
+        """Create selling information embed"""
+        embed = discord.Embed(
+            title="Selling List",
+            color=0x0099ff
+        )
+
+        # Group items for display
+        grouped_items = {}
+        total_robux = 0
+
+        for item in items_list:
+            key = f"{item['name']} ({item['type']}) ({item['status']})"
+            if key not in grouped_items:
+                grouped_items[key] = {'quantity': 0, 'robux_price': 0}
+
+            # Calculate individual robux price for this item
+            total_value = sum(i['value'] * i['quantity'] for i in items_list)
+            total_millions = total_value / 1_000_000
+            robux_rate = self.calculate_robux_rate(total_millions)
+            item_robux = int((item['value'] * item['quantity'] / 1_000_000) * robux_rate)
+
+            grouped_items[key]['quantity'] += item['quantity']
+            grouped_items[key]['robux_price'] += item_robux
+            total_robux += item_robux
+
+        # Create items list for display
+        items_text = []
+        prices_text = []
+
+        for item_name, data in grouped_items.items():
+            quantity = data['quantity']
+            robux_price = data['robux_price']
+
+            if quantity == 1:
+                items_text.append(f"• 1x {item_name}")
+            else:
+                items_text.append(f"• {quantity}x {item_name}")
+
+            prices_text.append(f"{robux_price:,} Robux")
+
+        # Add TOTAL
+        items_text.append("**TOTAL**")
+        prices_text.append(f"**{total_robux:,} Robux**")
+
+        embed.add_field(
+            name="Item",
+            value="\n".join(items_text),
+            inline=True
+        )
+
+        embed.add_field(
+            name="Prices",
+            value="\n".join(prices_text),
+            inline=True
+        )
+
+        embed.set_footer(text=f"{self.bot.user.name} - Selling List", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
+        if self.bot.user.avatar:
+            embed.set_thumbnail(url=self.bot.user.avatar.url)
+
         return embed
 
     async def create_gamepass_success_embed(self, user, gamepass_name, gamepass_price, gamepass_id, experience_id):
@@ -255,7 +449,7 @@ class TradingTicketSystem:
         """Create transaction pending embed for support team"""
         embed = discord.Embed(
             title="Transaction Pending",
-            description=f"Welcome Back <@1300798850788757564>! {seller_user.mention} wants to sell for {total_robux_pretax:,} Robux (Incl. Tax):",
+            description=f"Welcome Back <@&1300798850788757564>! {seller_user.mention} wants to sell for {total_robux_pretax:,} Robux (Incl. Tax):",
             color=0xffaa00
         )
 
@@ -516,7 +710,7 @@ class TradingTicketSystem:
                                 accept_view = AcceptTransactionView(self, channel, user)
 
                                 await channel.send(
-                                    content="<@1300798850788757564>",
+                                    content="<@&1300798850788757564>",
                                     embed=pending_embed,
                                     view=accept_view
                                 )
@@ -687,7 +881,7 @@ class SellingFormView(discord.ui.View):
             next_button = discord.ui.Button(
                 label='Next', 
                 style=discord.ButtonStyle.primary, 
-                emoji='➡️', 
+                emoji='<:NextLOGO:1410972675261857892>', 
                 custom_id='selling_next'
             )
             next_button.callback = self.handle_next_to_payment
@@ -947,38 +1141,82 @@ class ItemModal(discord.ui.Modal):
         await interaction.edit_original_response(embed=new_embed, view=self.parent_view)
 
         success_embed = await self.parent_view.ticket_system.create_error_embed(
-            "Success",
-            f"✅ {item_entry['name']} x{quantity} ({status.capitalize()}) {action_text} your selling list!"
+            "<:SucessLOGO:1387810153864368218> Item Added",
+            f"X{quantity} {item_entry['name']} ({status.capitalize()}) {action_text} your selling list!"
         )
         success_embed.color = 0x00ff00  # Green color for success
         await interaction.followup.send(embed=success_embed, ephemeral=True)
 
 class PaymentMethodView(discord.ui.View):
-    def __init__(self, ticket_system, user_id, items_list):
+    def __init__(self, ticket_system, user_id, items_list, disable_back=False):
         super().__init__(timeout=None)
         self.ticket_system = ticket_system
         self.user_id = user_id
         self.items_list = items_list
+        self.disable_back = disable_back
+        self.setup_buttons()
 
-    @discord.ui.button(label='GamePass Method', style=discord.ButtonStyle.success, emoji='🎮', custom_id='payment_gamepass')
-    async def gamepass_method(self, interaction: discord.Interaction, button: discord.ui.Button):
+    def setup_buttons(self):
+        """Setup buttons with conditional back button state"""
+        # GamePass Method button
+        gamepass_button = discord.ui.Button(
+            label='GamePass Method', 
+            style=discord.ButtonStyle.success, 
+            emoji='<:GamePassLOGO:1410971222715531274>', 
+            custom_id='payment_gamepass'
+        )
+        gamepass_button.callback = self.gamepass_method
+        self.add_item(gamepass_button)
+
+        # Group Donation Method button
+        group_button = discord.ui.Button(
+            label='Group Donation Method', 
+            style=discord.ButtonStyle.primary, 
+            emoji='👥', 
+            custom_id='payment_group'
+        )
+        group_button.callback = self.group_method
+        self.add_item(group_button)
+
+        # Information button
+        info_button = discord.ui.Button(
+            label='Information', 
+            style=discord.ButtonStyle.secondary, 
+            emoji='<:InformationLOGO:1410970300841066496>', 
+            custom_id='payment_info',
+            row=1
+        )
+        info_button.callback = self.information
+        self.add_item(info_button)
+
+        # Back button (disabled if needed)
+        back_button = discord.ui.Button(
+            label='Back', 
+            style=discord.ButtonStyle.secondary, 
+            emoji='<:BackLOGO:1410726662328422410>', 
+            custom_id='payment_back',
+            disabled=self.disable_back
+        )
+        back_button.callback = self.back_to_selling
+        self.add_item(back_button)
+
+    async def gamepass_method(self, interaction: discord.Interaction):
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
-        modal = UsernameModal(self, create_new_message=True)
+        modal = UsernameModal(self, method="gamepass")
         await interaction.response.send_modal(modal)
 
-    @discord.ui.button(label='Group Donation Method', style=discord.ButtonStyle.primary, emoji='👥', custom_id='payment_group')
-    async def group_method(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def group_method(self, interaction: discord.Interaction):
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
-        await interaction.response.send_message("Group Donation Method will be implemented soon!", ephemeral=True)
+        modal = UsernameModal(self, method="group")
+        await interaction.response.send_modal(modal)
 
-    @discord.ui.button(label='Information', style=discord.ButtonStyle.secondary, emoji='ℹ️', custom_id='payment_info')
-    async def information(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def information(self, interaction: discord.Interaction):
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
@@ -987,10 +1225,13 @@ class PaymentMethodView(discord.ui.View):
         view = InformationView(self.ticket_system, self.user_id, self.items_list)
         await interaction.response.edit_message(embed=info_embed, view=view)
 
-    @discord.ui.button(label='Back', style=discord.ButtonStyle.secondary, emoji='<:BackLOGO:1410726662328422410>', custom_id='payment_back')
-    async def back_to_selling(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def back_to_selling(self, interaction: discord.Interaction):
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
+            return
+
+        if self.disable_back:
+            await interaction.response.send_message("This button is currently disabled.", ephemeral=True)
             return
 
         # Go back to selling form
@@ -1014,15 +1255,14 @@ class InformationView(discord.ui.View):
             return
 
         payment_embed = await self.ticket_system.create_payment_method_embed(interaction.user, self.items_list)
-        view = PaymentMethodView(self.ticket_system, self.user_id, self.items_list)
+        view = PaymentMethodView(self.ticket_system, self.user_id, self.items_list, disable_back=False)
         await interaction.response.edit_message(embed=payment_embed, view=view)
 
 class UsernameModal(discord.ui.Modal):
-    def __init__(self, parent_view, from_info=False, create_new_message=False):
+    def __init__(self, parent_view, method="gamepass"):
         super().__init__(title="Roblox Username")
         self.parent_view = parent_view
-        self.from_info = from_info
-        self.create_new_message = create_new_message
+        self.method = method
 
         self.username = discord.ui.TextInput(
             label="Roblox Username",
@@ -1051,63 +1291,35 @@ class UsernameModal(discord.ui.Modal):
             if not user_id:
                 error_embed = await self.parent_view.ticket_system.create_error_embed(
                     "User Not Found",
-                    f"Roblox user '{username}' not found!"
+                    f"No username exists with the name '{username}'!"
                 )
                 await interaction.followup.send(embed=error_embed, ephemeral=True)
                 return
 
-            # Get user experiences
-            experiences = client.get_user_experiences(user_id)
+            # Get user details including avatar
+            user_details = client.get_user_details(user_id)
+            avatar_url = client.get_user_avatar(user_id)
+            
+            roblox_user_data = {
+                'id': user_id,
+                'name': user_details.get('name', username),
+                'displayName': user_details.get('displayName', username),
+                'avatar_url': avatar_url
+            }
 
-            if not experiences:
-                error_embed = await self.parent_view.ticket_system.create_error_embed(
-                    "No Experiences Found",
-                    f"No public experiences found for user '{username}'!"
-                )
-                await interaction.followup.send(embed=error_embed, ephemeral=True)
-                return
-
-            # Get the first experience ID
-            first_experience = experiences[0]
-            universe_id = first_experience.get('id')
-
-            if not universe_id:
-                error_embed = await self.parent_view.ticket_system.create_error_embed(
-                    "Invalid Experience",
-                    "Could not retrieve experience ID!"
-                )
-                await interaction.followup.send(embed=error_embed, ephemeral=True)
-                return
-
-            # Create the GamePass creation link
-            gamepass_url = f"https://create.roblox.com/dashboard/creations/experiences/{universe_id}/monetization/passes"
-
-            # Calculate expected price without tax
-            total_value = sum(item['value'] * item['quantity'] for item in self.parent_view.items_list)
-            total_millions = total_value / 1_000_000
-            robux_rate = self.parent_view.ticket_system.calculate_robux_rate(total_millions)
-            expected_price = int(total_millions * robux_rate)  # Without tax
-
-            # Create result embed
-            result_embed = await self.parent_view.ticket_system.create_gamepass_result_embed(
-                interaction.user, 
-                gamepass_url
+            # Create account confirmation embed
+            confirmation_embed = await self.parent_view.ticket_system.create_account_confirmation_embed(roblox_user_data)
+            
+            # Create confirmation view
+            confirmation_view = AccountConfirmationView(
+                self.parent_view.ticket_system, 
+                self.parent_view.user_id, 
+                self.parent_view.items_list, 
+                roblox_user_data,
+                self.method
             )
-
-            if self.create_new_message:
-                await interaction.followup.send(embed=result_embed)
-            else:
-                await interaction.edit_original_response(embed=result_embed, view=None)
-
-            # Start GamePass monitoring
-            await self.parent_view.ticket_system.start_gamepass_monitoring(
-                interaction.channel,
-                interaction.user,
-                username,
-                universe_id,
-                self.parent_view.items_list,
-                expected_price
-            )
+            
+            await interaction.edit_original_response(embed=confirmation_embed, view=confirmation_view)
 
         except ImportError:
             error_embed = await self.parent_view.ticket_system.create_error_embed(
@@ -1122,6 +1334,280 @@ class UsernameModal(discord.ui.Modal):
             )
             await interaction.followup.send(embed=error_embed, ephemeral=True)
 
+class AccountConfirmationView(discord.ui.View):
+    def __init__(self, ticket_system, user_id, items_list, roblox_user_data, method):
+        super().__init__(timeout=None)
+        self.ticket_system = ticket_system
+        self.user_id = user_id
+        self.items_list = items_list
+        self.roblox_user_data = roblox_user_data
+        self.method = method
+
+    @discord.ui.button(label='Confirm', style=discord.ButtonStyle.success, custom_id='confirm_account')
+    async def confirm_account(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
+            return
+
+        await interaction.response.defer()
+
+        if self.method == "gamepass":
+            await self._handle_gamepass_method(interaction)
+        elif self.method == "group":
+            await self._handle_group_method(interaction)
+
+    @discord.ui.button(label='Other Account', style=discord.ButtonStyle.secondary, custom_id='other_account')
+    async def other_account(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
+            return
+
+        modal = UsernameModal(self.ticket_system, self.method)
+        await interaction.response.send_modal(modal)
+
+    async def _handle_gamepass_method(self, interaction):
+        """Handle GamePass method confirmation"""
+        try:
+            from roblox_sync import RobloxClient
+
+            client = RobloxClient()
+            user_id = self.roblox_user_data['id']
+            
+            # Get user experiences
+            experiences = client.get_user_experiences(user_id)
+
+            if not experiences:
+                error_embed = await self.ticket_system.create_error_embed(
+                    "No Experiences Found",
+                    f"No public experiences found for this user!"
+                )
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
+                return
+
+            # Get the first experience ID
+            first_experience = experiences[0]
+            universe_id = first_experience.get('id')
+
+            if not universe_id:
+                error_embed = await self.ticket_system.create_error_embed(
+                    "Invalid Experience",
+                    "Could not retrieve experience ID!"
+                )
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
+                return
+
+            # Create the GamePass creation link
+            gamepass_url = f"https://create.roblox.com/dashboard/creations/experiences/{universe_id}/monetization/passes"
+
+            # Calculate expected price without tax
+            total_value = sum(item['value'] * item['quantity'] for item in self.items_list)
+            total_millions = total_value / 1_000_000
+            robux_rate = self.ticket_system.calculate_robux_rate(total_millions)
+            expected_price = int(total_millions * robux_rate)
+
+            # Create result embed
+            result_embed = await self.ticket_system.create_gamepass_result_embed(
+                interaction.user, 
+                gamepass_url
+            )
+
+            # Update original message with disabled back button
+            payment_embed = await self.ticket_system.create_payment_method_embed(interaction.user, self.items_list)
+            disabled_view = PaymentMethodView(self.ticket_system, self.user_id, self.items_list, disable_back=True)
+            
+            await interaction.edit_original_response(embed=payment_embed, view=disabled_view)
+            await interaction.followup.send(embed=result_embed)
+
+            # Start GamePass monitoring
+            await self.ticket_system.start_gamepass_monitoring(
+                interaction.channel,
+                interaction.user,
+                self.roblox_user_data['name'],
+                universe_id,
+                self.items_list,
+                expected_price
+            )
+
+        except Exception as e:
+            error_embed = await self.ticket_system.create_error_embed(
+                "Error",
+                f"An error occurred: {str(e)}"
+            )
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
+
+    async def _handle_group_method(self, interaction):
+        """Handle Group method confirmation"""
+        try:
+            from roblox_sync import RobloxClient
+
+            client = RobloxClient()
+            user_id = self.roblox_user_data['id']
+            group_id = 34785441
+
+            # Check if user is in group
+            is_in_group = client.is_user_in_group(user_id, group_id)
+            
+            # Calculate total robux
+            total_value = sum(item['value'] * item['quantity'] for item in self.items_list)
+            total_millions = total_value / 1_000_000
+            robux_rate = self.ticket_system.calculate_robux_rate(total_millions)
+            total_robux = int(total_millions * robux_rate)
+
+            if is_in_group:
+                # User already in group - direct transaction
+                transaction_embed = await self.ticket_system.create_group_transaction_embed(
+                    interaction.user, self.items_list, total_robux
+                )
+                
+                view = GroupTransactionView(
+                    self.ticket_system, interaction.user, self.items_list, 
+                    total_robux, self.roblox_user_data['name']
+                )
+                
+                content = f"{interaction.user.mention} <@&1300798850788757564>"
+                await interaction.edit_original_response(content=content, embed=transaction_embed, view=view)
+            else:
+                # User needs to join group
+                join_embed = await self.ticket_system.create_group_join_embed()
+                await interaction.edit_original_response(embed=join_embed, view=None)
+                
+                # Start monitoring for group join
+                await self._monitor_group_join(interaction, user_id, group_id, total_robux)
+
+        except Exception as e:
+            error_embed = await self.ticket_system.create_error_embed(
+                "Error",
+                f"An error occurred: {str(e)}"
+            )
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
+
+    async def _monitor_group_join(self, interaction, user_id, group_id, total_robux):
+        """Monitor for user joining the group"""
+        try:
+            from roblox_sync import RobloxClient
+            import time
+
+            client = RobloxClient()
+            
+            while True:
+                await asyncio.sleep(10)  # Check every 10 seconds
+                
+                if client.is_user_in_group(user_id, group_id):
+                    # User joined! Show waiting period
+                    end_timestamp = int(time.time()) + (14 * 24 * 60 * 60)  # 14 days from now
+                    
+                    waiting_embed = await self.ticket_system.create_waiting_period_embed(
+                        self.roblox_user_data['name'], end_timestamp
+                    )
+                    
+                    await interaction.edit_original_response(embed=waiting_embed, view=None)
+                    
+                    # Start timer for 2 weeks
+                    await asyncio.sleep(14 * 24 * 60 * 60)  # Wait 2 weeks
+                    
+                    # Send ready embed
+                    ready_embed = await self.ticket_system.create_transaction_ready_embed(
+                        self.items_list, total_robux
+                    )
+                    
+                    content = f"{interaction.user.mention} <@&1300798850788757564>"
+                    await interaction.channel.send(content=content, embed=ready_embed)
+                    
+                    # Allow user to speak
+                    overwrites = interaction.channel.overwrites
+                    if interaction.user in overwrites:
+                        overwrites[interaction.user].send_messages = True
+                        await interaction.channel.edit(overwrites=overwrites)
+                    
+                    break
+                    
+        except Exception as e:
+            print(f"Error monitoring group join: {e}")
+
+class GroupTransactionView(discord.ui.View):
+    def __init__(self, ticket_system, user, items_list, total_robux, roblox_username):
+        super().__init__(timeout=None)
+        self.ticket_system = ticket_system
+        self.user = user
+        self.items_list = items_list
+        self.total_robux = total_robux
+        self.roblox_username = roblox_username
+
+    @discord.ui.button(label='Accept', style=discord.ButtonStyle.success, custom_id='accept_group_transaction')
+    async def accept_transaction(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Check if user has the required role
+        required_role_id = 1300798850788757564
+        if not any(role.id == required_role_id for role in interaction.user.roles):
+            await interaction.response.send_message("You don't have permission to accept transactions!", ephemeral=True)
+            return
+
+        # Allow user to speak in the channel
+        overwrites = interaction.channel.overwrites
+        if self.user in overwrites:
+            overwrites[self.user].send_messages = True
+            await interaction.channel.edit(overwrites=overwrites)
+
+        # Send acceptance embed
+        accept_embed = await self.ticket_system.create_purchase_accepted_embed(self.user)
+        await interaction.response.send_message(embed=accept_embed)
+
+        # Disable the buttons
+        self.clear_items()
+        await interaction.edit_original_response(view=self)
+
+    @discord.ui.button(label='Refuse', style=discord.ButtonStyle.danger, custom_id='refuse_group_transaction')
+    async def refuse_transaction(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Check if user has the required role
+        required_role_id = 1300798850788757564
+        if not any(role.id == required_role_id for role in interaction.user.roles):
+            await interaction.response.send_message("You don't have permission to refuse transactions!", ephemeral=True)
+            return
+
+        modal = RefuseReasonModal(self.user, interaction.channel)
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label='Sell Information', style=discord.ButtonStyle.secondary, custom_id='sell_info')
+    async def sell_information(self, interaction: discord.Interaction, button: discord.ui.Button):
+        info_embed = await self.ticket_system.create_sell_info_embed(self.items_list)
+        await interaction.response.send_message(embed=info_embed, ephemeral=True)
+
+class RefuseReasonModal(discord.ui.Modal):
+    def __init__(self, user, channel):
+        super().__init__(title="Refuse Reason")
+        self.user = user
+        self.channel = channel
+
+        self.reason = discord.ui.TextInput(
+            label="Reason for refusal",
+            placeholder="Enter the reason for refusing this transaction...",
+            required=True,
+            style=discord.TextStyle.paragraph,
+            max_length=1000
+        )
+
+        self.add_item(self.reason)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+
+        # Create refusal embed for DM
+        refuse_embed = discord.Embed(
+            title="Sell Request Refused",
+            description=f"Your selling request has been refused by our staff for these reasons:\n{self.reason.value}",
+            color=0xff0000
+        )
+
+        try:
+            # Send DM to user
+            await self.user.send(embed=refuse_embed)
+            await interaction.followup.send("Refusal reason sent to user via DM.", ephemeral=True)
+        except discord.Forbidden:
+            await interaction.followup.send("Could not send DM to user, but transaction was refused.", ephemeral=True)
+
+        # Delete the channel after a short delay
+        await asyncio.sleep(5)
+        await self.channel.delete(reason="Transaction refused by staff")
+
 class AcceptTransactionView(discord.ui.View):
     def __init__(self, ticket_system, channel, user):
         super().__init__(timeout=None)
@@ -1129,7 +1615,7 @@ class AcceptTransactionView(discord.ui.View):
         self.channel = channel
         self.user = user
 
-    @discord.ui.button(label='Accept', style=discord.ButtonStyle.success, emoji='✅', custom_id='accept_transaction')
+    @discord.ui.button(label='Accept', style=discord.ButtonStyle.success, emoji='<:ConfirmLOGO:1410970202191171797>', custom_id='accept_transaction')
     async def accept_transaction(self, interaction: discord.Interaction, button: discord.ui.Button):
         # Check if user has appropriate permissions (you can modify this)
         if not interaction.user.guild_permissions.manage_guild:
