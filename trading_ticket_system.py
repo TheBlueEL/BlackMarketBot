@@ -643,14 +643,16 @@ class TradingTicketSystem:
         # Check for hyperchrome patterns first
         hyper_data = item_data.get('hyper', {})
         
-        # First pass: look for exact matches in aliases
+        # First pass: look for exact matches in aliases (priorité absolue)
+        input_stripped = item_input.strip()
         for hyper_name, aliases in hyper_data.items():
             for alias in aliases:
-                if alias.lower() == item_input.lower():
+                if alias.lower().strip() == input_stripped.lower():
+                    print(f"DEBUG: Found exact alias match '{alias}' for input '{input_stripped}' -> {hyper_name}")
                     return self._get_hyperchrome_from_api(hyper_name, api_data)
 
         # Second pass: try to match partial patterns like "Purple 5" → "HyperPurple Level 5"
-        input_lower = item_input.lower().strip()
+        input_lower = input_input.lower().strip()
         
         # Extract color and level from input
         import re
@@ -670,6 +672,7 @@ class TradingTicketSystem:
                 
                 # Try to find exact matching hyperchrome
                 target_name = f"Hyper{color} Level {level}"
+                print(f"DEBUG: Pattern match found, looking for '{target_name}'")
                 if target_name in hyper_data:
                     return self._get_hyperchrome_from_api(target_name, api_data)
 
