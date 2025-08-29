@@ -85,7 +85,7 @@ class TradingTicketSystem:
         """Create the selling list embed with items"""
         embed = discord.Embed(
             title="<:SellingLOGO:1410730163607437344> Selling Ticket",
-            color=0xff6b35
+            color=0x19D600
         )
 
         if not items_list:
@@ -192,7 +192,7 @@ class TradingTicketSystem:
                 description_lines.append(f"• 1x {item_name} {robux_price:,} <:RobuxLOGO:1410727587134701639>")
             else:
                 per_item_price = robux_price // quantity
-                description_lines.append(f"• {quantity}x {item_name} {robux_price:,} <:RobuxLOGO:1410727587134701639> ({per_item_price:,} robux x{quantity})")
+                description_lines.append(f"• {quantity}x {item_name} {robux_price:,} <:RobuxLOGO:1410727587134701639> ({per_item_price:,} <:RobuxLOGO:1410727587134701639> x{quantity})")
 
         description_lines.append(f"\nFor a total of {total_robux:,} <:RobuxLOGO:1410727587134701639> (Incl. Tax)")
         description_lines.append("\nChoose the method you want to receive your payment.")
@@ -284,7 +284,7 @@ class TradingTicketSystem:
 ➤ Our services are 100% reliable, we collect hundreds and hundreds of vouches visible in channel <#1312591100971843676>
 
 **Why choose us?**
-➤ We have **THE highest Robux rate/million** which can go up to **90 robux/million** depending on the quantity of items you sell to us.
+➤ We have **THE highest Robux rate/million** which can go up to **90 <:RobuxLOGO:1410727587134701639>/million** depending on the quantity of items you sell to us.
 """
 
         embed.add_field(name="F.A.Q", value=faq_text, inline=False)
@@ -299,7 +299,7 @@ class TradingTicketSystem:
         """Create embed when 2-week waiting period is complete"""
         embed = discord.Embed(
             title="Transaction Ready",
-            description=f"The 2-week period has elapsed, you can now proceed with the transaction of your items.\n\n**Total Amount:** {total_robux:,} Robux\n**Payment Link:** [**HERE**](https://www.roblox.com/group/configure?id=34785441#!/revenue/payouts)",
+            description=f"The 2-week period has elapsed, you can now proceed with the transaction of your items.\n\n**Total Amount:** {total_robux:,} <:RobuxLOGO:1410727587134701639>\n**Payment Link:** [**HERE**](https://www.roblox.com/communities/configure?id=34785441/revenue/payouts)",
             color=0x00ff00
         )
         embed.set_footer(text=f"{self.bot.user.name} - Transaction Ready", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
@@ -310,9 +310,9 @@ class TradingTicketSystem:
     async def create_group_transaction_embed(self, user, items_list, total_robux):
         """Create transaction embed for users already in group"""
         embed = discord.Embed(
-            title="Transaction to be Processed",
-            description=f"Your request has been received, please wait for our teams to be available.\n\n**Total Amount:** {total_robux:,} Robux\n**Payment Link:** [**HERE**](https://www.roblox.com/group/configure?id=34785441#!/revenue/payouts)",
-            color=0xffaa00
+            title="<:SucessLOGO:1387810153864368218> Request Sucess",
+            description=f"Your request has been received, please wait for our teams to be available.\n\n**Total Amount:** {total_robux:,} <:RobuxLOGO:1410727587134701639>\n**Payment Link:** [**HERE**](https://www.roblox.com/communities/configure?id=34785441/revenue/payouts)",
+            color=0x37C700
         )
 
         # Create items list for display
@@ -361,11 +361,11 @@ class TradingTicketSystem:
                 formatted_item = full_item_text
 
             items_text.append(formatted_item)
-            prices_text.append(f"{robux_price:,} Robux")
+            prices_text.append(f"{robux_price:,} <:RobuxLOGO:1410727587134701639>")
 
         # Add TOTAL
         items_text.append("**TOTAL**")
-        prices_text.append(f"**{total_robux:,} Robux**")
+        prices_text.append(f"**{total_robux:,} <:RobuxLOGO:1410727587134701639>**")
 
         embed.add_field(
             name="Item",
@@ -441,11 +441,11 @@ class TradingTicketSystem:
                 formatted_item = full_item_text
 
             items_text.append(formatted_item)
-            prices_text.append(f"{robux_price:,} Robux")
+            prices_text.append(f"{robux_price:,} <:RobuxLOGO:1410727587134701639>")
 
         # Add TOTAL
         items_text.append("**TOTAL**")
-        prices_text.append(f"**{total_robux:,} Robux**")
+        prices_text.append(f"**{total_robux:,} <:RobuxLOGO:1410727587134701639>**")
 
         embed.add_field(
             name="Item",
@@ -483,7 +483,7 @@ class TradingTicketSystem:
         """Create transaction pending embed for support team"""
         embed = discord.Embed(
             title="Transaction Pending",
-            description=f"Welcome Back <@&1300798850788757564>! {seller_user.mention} wants to sell for {total_robux_pretax:,} Robux (Incl. Tax):",
+            description=f"Welcome Back <@&1300798850788757564>! {seller_user.mention} wants to sell for {total_robux_pretax:,} <:RobuxLOGO:1410727587134701639> (Incl. Tax):",
             color=0xffaa00
         )
 
@@ -533,7 +533,7 @@ class TradingTicketSystem:
                 formatted_item = full_item_text
 
             items_text.append(formatted_item)
-            prices_text.append(f"{robux_price:,} Robux")
+            prices_text.append(f"{robux_price:,} <:RobuxLOGO:1410727587134701639>")
 
         embed.add_field(
             name="Items",
@@ -1572,7 +1572,7 @@ class AccountConfirmationView(discord.ui.View):
         self.roblox_user_data = roblox_user_data
         self.method = method
 
-    @discord.ui.button(label='Confirm', style=discord.ButtonStyle.success, custom_id='confirm_account')
+    @discord.ui.button(label='Confirm', emoji='<:ConfirmLOGO:1410970202191171797>', style=discord.ButtonStyle.success, custom_id='confirm_account')
     async def confirm_account(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
@@ -1585,7 +1585,7 @@ class AccountConfirmationView(discord.ui.View):
         elif self.method == "group":
             await self._handle_group_method(interaction)
 
-    @discord.ui.button(label='Other Account', style=discord.ButtonStyle.secondary, custom_id='other_account')
+    @discord.ui.button(label='Other Account', style=discord.ButtonStyle.secondary, emoji='<:Update_LOGO:1411113397742997504>', custom_id='other_account')
     async def other_account(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
@@ -1690,12 +1690,14 @@ class AccountConfirmationView(discord.ui.View):
             # Add disabled buttons
             confirm_button = discord.ui.Button(
                 label='Confirm',
+                emoji= '<:ConfirmLOGO:1410970202191171797>',
                 style=discord.ButtonStyle.success,
                 custom_id='confirm_account_disabled',
                 disabled=True
             )
             other_button = discord.ui.Button(
                 label='Other Account',
+                emoji='<:Update_LOGO:1411113397742997504>',
                 style=discord.ButtonStyle.secondary,
                 custom_id='other_account_disabled',
                 disabled=True
@@ -1748,7 +1750,7 @@ class GroupTransactionView(discord.ui.View):
         self.total_robux = total_robux
         self.roblox_username = roblox_username
 
-    @discord.ui.button(label='Accept', style=discord.ButtonStyle.success, custom_id='accept_group_transaction')
+    @discord.ui.button(label='Accept', style=discord.ButtonStyle.success, emoji='<:ConfirmLOGO:1410970202191171797>', custom_id='accept_group_transaction')
     async def accept_transaction(self, interaction: discord.Interaction, button: discord.ui.Button):
         # Check if user has the required role
         required_role_id = 1300798850788757564
@@ -1770,7 +1772,7 @@ class GroupTransactionView(discord.ui.View):
         self.clear_items()
         await interaction.edit_original_response(view=self)
 
-    @discord.ui.button(label='Refuse', style=discord.ButtonStyle.danger, custom_id='refuse_group_transaction')
+    @discord.ui.button(label='Refuse', style=discord.ButtonStyle.danger, emoji='<:CloseLOGO:1411114868471496717>', custom_id='refuse_group_transaction')
     async def refuse_transaction(self, interaction: discord.Interaction, button: discord.ui.Button):
         # Check if user has the required role
         required_role_id = 1300798850788757564
@@ -1781,7 +1783,7 @@ class GroupTransactionView(discord.ui.View):
         modal = RefuseReasonModal(self.user, interaction.channel)
         await interaction.response.send_modal(modal)
 
-    @discord.ui.button(label='Sell Information', style=discord.ButtonStyle.secondary, custom_id='sell_info')
+    @discord.ui.button(label='Information', emoji='<:InformationLOGO:1410970300841066496>', style=discord.ButtonStyle.secondary, custom_id='sell_info')
     async def sell_information(self, interaction: discord.Interaction, button: discord.ui.Button):
         info_embed = await self.ticket_system.create_sell_info_embed(self.items_list)
         await interaction.response.send_message(embed=info_embed, ephemeral=True)
@@ -1852,7 +1854,7 @@ class AcceptTransactionView(discord.ui.View):
         self.clear_items()
         await interaction.edit_original_response(view=self)
 
-    @discord.ui.button(label='Refuse', style=discord.ButtonStyle.danger, emoji='<:RefuseLOGO:1410970076102901790>', custom_id='refuse_gamepass_transaction')
+    @discord.ui.button(label='Refuse', style=discord.ButtonStyle.danger, emoji='<:CloseLOGO:1411114868471496717>', custom_id='refuse_gamepass_transaction')
     async def refuse_transaction(self, interaction: discord.Interaction, button: discord.ui.Button):
         # Check if user has the required role
         required_role_id = 1300798850788757564
@@ -1863,7 +1865,7 @@ class AcceptTransactionView(discord.ui.View):
         modal = RefuseReasonModal(self.user, self.channel)
         await interaction.response.send_modal(modal)
 
-    @discord.ui.button(label='Sell Information', style=discord.ButtonStyle.secondary, emoji='<:InformationLOGO:1410970300841066496>', custom_id='gamepass_sell_info')
+    @discord.ui.button(label='Information', style=discord.ButtonStyle.secondary, emoji='<:InformationLOGO:1410970300841066496>', custom_id='gamepass_sell_info')
     async def sell_information(self, interaction: discord.Interaction, button: discord.ui.Button):
         # This would require access to the items list, we'll implement this later
         await interaction.response.send_message("Sell information feature will be implemented.", ephemeral=True)
