@@ -134,27 +134,36 @@ class RobloxClient:
     def get_user_avatar(self, user_id):
         """Get user avatar URL"""
         try:
-            # Get avatar thumbnail
+            # Get avatar thumbnail with proper headers
             url = f"https://thumbnails.roblox.com/v1/users/avatar-headshot"
             params = {
-                'userIds': user_id,
+                'userIds': str(user_id),
                 'size': '420x420',
                 'format': 'Png',
                 'isCircular': 'false'
             }
 
-            response = requests.get(url, params=params)
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+
+            response = requests.get(url, params=params, headers=headers)
             response.raise_for_status()
 
             data = response.json()
             if data.get('data') and len(data['data']) > 0:
-                return data['data'][0].get('imageUrl')
+                image_url = data['data'][0].get('imageUrl')
+                # Ensure the URL is valid and accessible
+                if image_url and image_url.startswith('https://'):
+                    return image_url
 
-            return None
+            # Fallback to default Roblox avatar if no custom avatar
+            return f"https://www.roblox.com/headshot-thumbnail/image?userId={user_id}&width=420&height=420&format=png"
 
         except Exception as e:
             print(f"Erreur lors de la récupération de l'avatar: {e}")
-            return None
+            # Return fallback URL on error
+            return f"https://www.roblox.com/headshot-thumbnail/image?userId={user_id}&width=420&height=420&format=png"
 
     def is_user_in_group(self, user_id, group_id):
         """Check if user is in a specific group"""
