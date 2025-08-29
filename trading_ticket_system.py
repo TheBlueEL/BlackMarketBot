@@ -252,11 +252,11 @@ class TradingTicketSystem:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
 
-    async def create_transaction_pending_embed(self, seller_user, seller_username, gamepass_id, items_list, total_robux):
+    async def create_transaction_pending_embed(self, seller_user, seller_username, gamepass_id, items_list, total_robux_pretax):
         """Create transaction pending embed for support team"""
         embed = discord.Embed(
             title="Transaction Pending",
-            description=f"Welcome Back <@1300798850788757564>! {seller_user.mention} wants to sell for {total_robux:,} Robux:",
+            description=f"Welcome Back <@1300798850788757564>! {seller_user.mention} wants to sell for {total_robux_pretax:,} Robux (HORS TAXE):",
             color=0xffaa00
         )
 
@@ -502,15 +502,15 @@ class TradingTicketSystem:
                                 # Wait 3 seconds first
                                 await asyncio.sleep(3)
 
-                                # Calculate total robux for transaction
+                                # Calculate total robux for transaction (pre-tax)
                                 total_value = sum(item['value'] * item['quantity'] for item in items_list)
                                 total_millions = total_value / 1_000_000
                                 robux_rate = self.calculate_robux_rate(total_millions)
-                                total_robux_with_tax = int(total_millions * robux_rate * 0.70)
+                                total_robux_pretax = int(total_millions * robux_rate)
 
                                 # Send transaction pending embed (ping outside)
                                 pending_embed = await self.create_transaction_pending_embed(
-                                    user, username, gamepass_id, items_list, total_robux_with_tax
+                                    user, username, gamepass_id, items_list, total_robux_pretax
                                 )
 
                                 # Create accept button view
@@ -967,7 +967,7 @@ class PaymentMethodView(discord.ui.View):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
-        modal = UsernameModal(self)
+        modal = UsernameModal(self, create_new_message=True)
         await interaction.response.send_modal(modal)
 
     @discord.ui.button(label='Group Donation Method', style=discord.ButtonStyle.primary, emoji='👥', custom_id='payment_group')
@@ -987,6 +987,19 @@ class PaymentMethodView(discord.ui.View):
         info_embed = await self.ticket_system.create_information_embed(interaction.user)
         view = InformationView(self.ticket_system, self.user_id, self.items_list)
         await interaction.response.edit_message(embed=info_embed, view=view)
+
+    @discord.ui.button(label='Back', style=discord.ButtonStyle.secondary, emoji='<:BackLOGO:1410726662328422410>', custom_id='payment_back')
+    async def back_to_selling(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
+            return
+
+        # Go back to selling form
+        selling_embed = await self.ticket_system.create_selling_list_embed(interaction.user, self.items_list)
+        view = SellingFormView(self.ticket_system, self.user_id)
+        view.items_list = self.items_list  # Restore items list
+        view.update_buttons()
+        await interaction.response.edit_message(embed=selling_embed, view=view)
 
 class InformationView(discord.ui.View):
     def __init__(self, ticket_system, user_id, items_list):
@@ -1015,10 +1028,11 @@ class InformationView(discord.ui.View):
         await interaction.response.edit_message(embed=payment_embed, view=view)
 
 class UsernameModal(discord.ui.Modal):
-    def __init__(self, parent_view, from_info=False):
+    def __init__(self, parent_view, from_info=False, create_new_message=False):
         super().__init__(title="Roblox Username")
         self.parent_view = parent_view
         self.from_info = from_info
+        self.create_new_message = create_new_message
 
         self.username = discord.ui.TextInput(
             label="Roblox Username",
@@ -1090,7 +1104,10 @@ class UsernameModal(discord.ui.Modal):
                 gamepass_url
             )
 
-            await interaction.edit_original_response(embed=result_embed, view=None)
+            if self.create_new_message:
+                await interaction.followup.send(embed=result_embed)
+            else:
+                await interaction.edit_original_response(embed=result_embed, view=None)
 
             # Start GamePass monitoring
             await self.parent_view.ticket_system.start_gamepass_monitoring(
