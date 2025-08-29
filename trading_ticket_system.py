@@ -1439,6 +1439,7 @@ class AccountConfirmationView(discord.ui.View):
         """Handle Group method confirmation"""
         try:
             from roblox_sync import RobloxClient
+            from roblox_OnJoinGroup import group_monitor
 
             client = RobloxClient()
             user_id = self.roblox_user_data['id']
@@ -1471,8 +1472,12 @@ class AccountConfirmationView(discord.ui.View):
                 join_embed = await self.ticket_system.create_group_join_embed()
                 await interaction.edit_original_response(embed=join_embed, view=None)
 
-                # Start monitoring for group join
-                await self._monitor_group_join(interaction, user_id, group_id, total_robux)
+                # Start monitoring for group join using the dedicated module
+                if group_monitor:
+                    await group_monitor.start_group_monitoring(
+                        interaction.channel, interaction.user, user_id, group_id,
+                        self.items_list, total_robux, self.roblox_user_data['name'], self.ticket_system
+                    )
 
         except Exception as e:
             error_embed = await self.ticket_system.create_error_embed(
@@ -1480,49 +1485,6 @@ class AccountConfirmationView(discord.ui.View):
                 f"An error occurred: {str(e)}"
             )
             await interaction.followup.send(embed=error_embed, ephemeral=True)
-
-    async def _monitor_group_join(self, interaction, user_id, group_id, total_robux):
-        """Monitor for user joining the group"""
-        try:
-            from roblox_sync import RobloxClient
-            import time
-
-            client = RobloxClient()
-
-            while True:
-                await asyncio.sleep(10)  # Check every 10 seconds
-
-                if client.is_user_in_group(user_id, group_id):
-                    # User joined! Show waiting period
-                    end_timestamp = int(time.time()) + (14 * 24 * 60 * 60)  # 14 days from now
-
-                    waiting_embed = await self.ticket_system.create_waiting_period_embed(
-                        self.roblox_user_data['name'], end_timestamp
-                    )
-
-                    await interaction.edit_original_response(embed=waiting_embed, view=None)
-
-                    # Start timer for 2 weeks
-                    await asyncio.sleep(14 * 24 * 60 * 60)  # Wait 2 weeks
-
-                    # Send ready embed
-                    ready_embed = await self.ticket_system.create_transaction_ready_embed(
-                        self.items_list, total_robux
-                    )
-
-                    content = f"{interaction.user.mention} <@&1300798850788757564>"
-                    await interaction.channel.send(content=content, embed=ready_embed)
-
-                    # Allow user to speak
-                    overwrites = interaction.channel.overwrites
-                    if interaction.user in overwrites:
-                        overwrites[interaction.user].send_messages = True
-                        await interaction.channel.edit(overwrites=overwrites)
-
-                    break
-
-        except Exception as e:
-            print(f"Error monitoring group join: {e}")
 
 class GroupTransactionView(discord.ui.View):
     def __init__(self, ticket_system, user, items_list, total_robux, roblox_username):
@@ -1645,6 +1607,10 @@ from stockage_system import StockageSystem
 def setup_trading_ticket_system(bot):
     """Setup function to integrate trading ticket system with the bot"""
     ticket_system = TradingTicketSystem(bot)
+
+    # Setup group monitor
+    from roblox_OnJoinGroup import setup_group_monitor
+    setup_group_monitor(bot)
 
     # Add persistent views on bot startup
     bot.add_view(TicketPanelView(ticket_system))
