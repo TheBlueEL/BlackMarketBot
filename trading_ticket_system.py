@@ -52,7 +52,7 @@ class TradingTicketSystem:
             description="Welcome to our Jailbreak trading ticket system! We're here to help you buy and sell your valuable items safely and efficiently.\n\nClick the **Create Ticket** button below to get started with your trading journey!",
             color=0x00ff88
         )
-        embed.set_footer(text=f"{self.bot.user.name} - Ticket System")
+        embed.set_footer(text=f"{self.bot.user.name} - Ticket System", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
         if self.bot.user.avatar:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
@@ -64,7 +64,7 @@ class TradingTicketSystem:
             description=f"Welcome back {user.mention}!\n\nTo continue, please click on one of the two buttons below. Please note that all obtainable items and/or items worth less than 2.5M are not of interest to us and are not available in the item selection choices.\n\nChoose your trading preference:",
             color=0x0099ff
         )
-        embed.set_footer(text=f"{self.bot.user.name} - Trading Hub")
+        embed.set_footer(text=f"{self.bot.user.name} - Trading Hub", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
         if self.bot.user.avatar:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
@@ -76,7 +76,7 @@ class TradingTicketSystem:
             description="Please select which items you wish to sell.",
             color=0x19D600
         )
-        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
+        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
         if self.bot.user.avatar:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
@@ -149,7 +149,7 @@ class TradingTicketSystem:
                 inline=True
             )
 
-        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
+        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
         if self.bot.user.avatar:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
@@ -199,7 +199,7 @@ class TradingTicketSystem:
         description_lines.append("-# The client will always have to pay first.\n-# Vouch Channel: <#1312591100971843676>")
 
         embed.description = "\n".join(description_lines)
-        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
+        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
         if self.bot.user.avatar:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
@@ -220,7 +220,7 @@ class TradingTicketSystem:
         ]
 
         embed.description = "\n".join(description_lines)
-        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
+        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
         if self.bot.user.avatar:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
@@ -243,16 +243,16 @@ class TradingTicketSystem:
             title="Account Confirmation",
             color=0x0099ff
         )
-        
+
         display_name = roblox_user_data.get('displayName', 'N/A')
         username = roblox_user_data.get('name', 'N/A')
-        
+
         embed.description = f"**Display Name:** {display_name}\n**Username:** {username}"
-        
+
         # Set profile picture as thumbnail
         if roblox_user_data.get('avatar_url'):
             embed.set_thumbnail(url=roblox_user_data['avatar_url'])
-        
+
         embed.set_footer(text=f"{self.bot.user.name} - Account Confirmation", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
         return embed
 
@@ -275,7 +275,7 @@ class TradingTicketSystem:
             description=f"Welcome @{roblox_username}, you have just joined our group!\nPlease wait 2 weeks to proceed with payment. Once the time has elapsed, you will be automatically pinged in this channel.",
             color=0x00ff88
         )
-        
+
         faq_text = """
 **Why wait 2 weeks?**
 ➤ To avoid fraud, Roblox has implemented a waiting period for the **Group Payouts** feature. This waiting period has a maximum duration of 2 weeks.
@@ -286,10 +286,10 @@ class TradingTicketSystem:
 **Why choose us?**
 ➤ We have **THE highest Robux rate/million** which can go up to **90 robux/million** depending on the quantity of items you sell to us.
 """
-        
+
         embed.add_field(name="F.A.Q", value=faq_text, inline=False)
         embed.add_field(name="Time remaining:", value=f"<t:{end_timestamp}:R>", inline=False)
-        
+
         embed.set_footer(text=f"{self.bot.user.name} - Group Donation", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
         if self.bot.user.avatar:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
@@ -440,7 +440,7 @@ class TradingTicketSystem:
             description=f"Your GamePass has been successfully created!\n**GamePass Name:** {gamepass_name}\n**GamePass Price:** {gamepass_price:,} <:RobuxLOGO:1410727587134701639>\n\nPlease now set your GamePass price by clicking this link:\n[**Edit GamePass Price**]({price_link})\n\nWe are now monitoring your GamePass price changes...",
             color=0x00ff00
         )
-        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
+        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
         if self.bot.user.avatar:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
@@ -514,7 +514,7 @@ class TradingTicketSystem:
             inline=False
         )
 
-        embed.set_footer(text=f"{self.bot.user.name} - Transaction System")
+        embed.set_footer(text=f"{self.bot.user.name} - Transaction System", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
         if self.bot.user.avatar:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
 
@@ -527,7 +527,7 @@ class TradingTicketSystem:
             description=f"Your GamePass price doesn't match the required amount of **{expected_price:,}** Robux.\nYour current price is **{actual_price:,}** Robux.\n\nPlease use the previous link again to update your GamePass price to the correct amount.\n-# Please do not create a new GamePass.",
             color=0xff0000
         )
-        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
+        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
         if self.bot.user.avatar:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
@@ -539,7 +539,7 @@ class TradingTicketSystem:
             description="Our team has accepted your purchase. We will now proceed with the transaction.",
             color=0x00ff00
         )
-        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
+        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
         if self.bot.user.avatar:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
@@ -560,7 +560,7 @@ class TradingTicketSystem:
             description=description,
             color=0xff0000
         )
-        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket")
+        embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
         if self.bot.user.avatar:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
@@ -1299,7 +1299,7 @@ class UsernameModal(discord.ui.Modal):
             # Get user details including avatar
             user_details = client.get_user_details(user_id)
             avatar_url = client.get_user_avatar(user_id)
-            
+
             roblox_user_data = {
                 'id': user_id,
                 'name': user_details.get('name', username),
@@ -1309,7 +1309,7 @@ class UsernameModal(discord.ui.Modal):
 
             # Create account confirmation embed
             confirmation_embed = await self.parent_view.ticket_system.create_account_confirmation_embed(roblox_user_data)
-            
+
             # Create confirmation view
             confirmation_view = AccountConfirmationView(
                 self.parent_view.ticket_system, 
@@ -1318,7 +1318,7 @@ class UsernameModal(discord.ui.Modal):
                 roblox_user_data,
                 self.method
             )
-            
+
             await interaction.edit_original_response(embed=confirmation_embed, view=confirmation_view)
 
         except ImportError:
@@ -1372,7 +1372,7 @@ class AccountConfirmationView(discord.ui.View):
 
             client = RobloxClient()
             user_id = self.roblox_user_data['id']
-            
+
             # Get user experiences
             experiences = client.get_user_experiences(user_id)
 
@@ -1414,7 +1414,7 @@ class AccountConfirmationView(discord.ui.View):
             # Update original message with disabled back button
             payment_embed = await self.ticket_system.create_payment_method_embed(interaction.user, self.items_list)
             disabled_view = PaymentMethodView(self.ticket_system, self.user_id, self.items_list, disable_back=True)
-            
+
             await interaction.edit_original_response(embed=payment_embed, view=disabled_view)
             await interaction.followup.send(embed=result_embed)
 
@@ -1446,7 +1446,7 @@ class AccountConfirmationView(discord.ui.View):
 
             # Check if user is in group
             is_in_group = client.is_user_in_group(user_id, group_id)
-            
+
             # Calculate total robux
             total_value = sum(item['value'] * item['quantity'] for item in self.items_list)
             total_millions = total_value / 1_000_000
@@ -1458,19 +1458,19 @@ class AccountConfirmationView(discord.ui.View):
                 transaction_embed = await self.ticket_system.create_group_transaction_embed(
                     interaction.user, self.items_list, total_robux
                 )
-                
+
                 view = GroupTransactionView(
                     self.ticket_system, interaction.user, self.items_list, 
                     total_robux, self.roblox_user_data['name']
                 )
-                
+
                 content = f"{interaction.user.mention} <@&1300798850788757564>"
                 await interaction.edit_original_response(content=content, embed=transaction_embed, view=view)
             else:
                 # User needs to join group
                 join_embed = await self.ticket_system.create_group_join_embed()
                 await interaction.edit_original_response(embed=join_embed, view=None)
-                
+
                 # Start monitoring for group join
                 await self._monitor_group_join(interaction, user_id, group_id, total_robux)
 
@@ -1488,39 +1488,39 @@ class AccountConfirmationView(discord.ui.View):
             import time
 
             client = RobloxClient()
-            
+
             while True:
                 await asyncio.sleep(10)  # Check every 10 seconds
-                
+
                 if client.is_user_in_group(user_id, group_id):
                     # User joined! Show waiting period
                     end_timestamp = int(time.time()) + (14 * 24 * 60 * 60)  # 14 days from now
-                    
+
                     waiting_embed = await self.ticket_system.create_waiting_period_embed(
                         self.roblox_user_data['name'], end_timestamp
                     )
-                    
+
                     await interaction.edit_original_response(embed=waiting_embed, view=None)
-                    
+
                     # Start timer for 2 weeks
                     await asyncio.sleep(14 * 24 * 60 * 60)  # Wait 2 weeks
-                    
+
                     # Send ready embed
                     ready_embed = await self.ticket_system.create_transaction_ready_embed(
                         self.items_list, total_robux
                     )
-                    
+
                     content = f"{interaction.user.mention} <@&1300798850788757564>"
                     await interaction.channel.send(content=content, embed=ready_embed)
-                    
+
                     # Allow user to speak
                     overwrites = interaction.channel.overwrites
                     if interaction.user in overwrites:
                         overwrites[interaction.user].send_messages = True
                         await interaction.channel.edit(overwrites=overwrites)
-                    
+
                     break
-                    
+
         except Exception as e:
             print(f"Error monitoring group join: {e}")
 
