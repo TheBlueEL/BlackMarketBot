@@ -207,15 +207,15 @@ class TradingTicketSystem:
     async def create_information_embed(self, user):
         """Create the information embed explaining payment methods"""
         embed = discord.Embed(
-            title="<:SellingLOGO:1410730163607437344> Selling Ticket",
+            title="<:SellingLOGO:1410730163607437344> Selling Information",
             color=0xff6b35
         )
 
         description_lines = [
-            "**GamePass Method**",
+            "**<:GamePassLOGO:1410971222715531274> GamePass Method**",
             'The "**GamePass Method**" consists of **creating a Gamepass** on an experience where you can set the price of the amount we will have to pay. This payment is made instantly depending on the availability of our teams.',
             "",
-            "**Group Donation Method**",
+            "**<:GroupLOGO:1411125220873474179> roup Donation Method**",
             'The "**Group Donation Method**" consists of joining our Roblox group in order to receive, after a delay of 2 weeks, implemented by Roblox, your transaction.'
         ]
 
@@ -259,7 +259,7 @@ class TradingTicketSystem:
     async def create_group_join_embed(self):
         """Create embed for group joining requirement"""
         embed = discord.Embed(
-            title="Transaction Method",
+            title="<:GroupLOGO:1411125220873474179> Group Donation Method",
             description="Please click on the link below to join our group:\n[**Group Donation Method**](https://www.roblox.com/communities/34785441/about)",
             color=0x0099ff
         )
@@ -271,7 +271,7 @@ class TradingTicketSystem:
     async def create_waiting_period_embed(self, roblox_username, end_timestamp):
         """Create embed for 2-week waiting period"""
         embed = discord.Embed(
-            title="Welcome to our Group!",
+            title="<:GroupLOGO:1411125220873474179> Welcome to our Group!",
             description=f"Welcome @{roblox_username}, you have just joined our group!\nPlease wait 2 weeks to proceed with payment. Once the time has elapsed, you will be automatically pinged in this channel.",
             color=0x00ff88
         )
@@ -612,59 +612,54 @@ class TradingTicketSystem:
         try:
             with open('item_request.json', 'r', encoding='utf-8') as f:
                 item_data = json.load(f)
+            with open('API_JBChangeLogs.json', 'r', encoding='utf-8') as f:
+                api_data = json.load(f)
         except FileNotFoundError:
             return {'name': item_input, 'type': 'None', 'is_hyperchrome': False}
 
-        # Check for hyperchrome patterns first - with exact match priority
+        # Check for hyperchrome patterns first
         hyper_data = item_data.get('hyper', {})
         
-        # First pass: look for exact matches
+        # First pass: look for exact matches in aliases
         for hyper_name, aliases in hyper_data.items():
             for alias in aliases:
                 if alias.lower() == item_input.lower():
-                    # Found exact hyperchrome match, get from API with 2023 year
-                    try:
-                        with open('API_JBChangeLogs.json', 'r', encoding='utf-8') as f:
-                            api_data = json.load(f)
+                    return self._get_hyperchrome_from_api(hyper_name, api_data)
 
-                        # Look for hyperchrome with 2023 year first
-                        hyperchrome_name_2023 = f"{hyper_name} 2023 (HyperChrome)"
-                        if hyperchrome_name_2023 in api_data:
-                            return {
-                                'name': hyper_name,  # Display name without year
-                                'type': 'Hyperchrome',
-                                'is_hyperchrome': True,
-                                'api_name': hyperchrome_name_2023
-                            }
+        # Second pass: try to match partial patterns like "Purple 5" → "HyperPurple Level 5"
+        input_lower = item_input.lower().strip()
+        
+        # Extract color and level from input
+        import re
+        
+        # Pattern for "Color Level" or "Color L" or just "Color Number"
+        color_level_patterns = [
+            r'^(blue|red|yellow|orange|pink|purple|diamond|green)\s+(level\s*)?(\d+)$',
+            r'^(blue|red|yellow|orange|pink|purple|diamond|green)\s+l(\d+)$',
+            r'^(blue|red|yellow|orange|pink|purple|diamond|green)\s+(\d+)$'
+        ]
+        
+        for pattern in color_level_patterns:
+            match = re.match(pattern, input_lower)
+            if match:
+                color = match.group(1).capitalize()
+                level = match.group(-1)  # Last group is always the number
+                
+                # Try to find matching hyperchrome
+                for hyper_name in hyper_data.keys():
+                    if f"Hyper{color}" in hyper_name and f"Level {level}" in hyper_name:
+                        return self._get_hyperchrome_from_api(hyper_name, api_data)
 
-                        # Try without year but with HyperChrome tag
-                        hyperchrome_name_normal = f"{hyper_name} (HyperChrome)"
-                        if hyperchrome_name_normal in api_data:
-                            return {
-                                'name': hyper_name,
-                                'type': 'Hyperchrome',
-                                'is_hyperchrome': True,
-                                'api_name': hyperchrome_name_normal
-                            }
+        # Third pass: check if input might be a hyperchrome name directly
+        for hyper_name in hyper_data.keys():
+            # Check if input matches the hyperchrome name pattern
+            clean_hyper = hyper_name.lower().replace("hyper", "").replace("level", "").replace("l", "").strip()
+            clean_input = input_lower.replace("hyper", "").replace("level", "").replace("l", "").strip()
+            
+            if clean_input in clean_hyper or clean_hyper in clean_input:
+                return self._get_hyperchrome_from_api(hyper_name, api_data)
 
-                        # Fallback to original name if found in API
-                        if hyper_name in api_data:
-                            return {
-                                'name': hyper_name,
-                                'type': 'Hyperchrome',
-                                'is_hyperchrome': True,
-                                'api_name': hyper_name
-                            }
-                    except FileNotFoundError:
-                        pass
-
-                    return {
-                        'name': hyper_name,
-                        'type': 'Hyperchrome',
-                        'is_hyperchrome': True
-                    }
-
-        # Check for type patterns
+        # Check for type patterns if not hyperchrome
         type_data = item_data.get('type', {})
         detected_type = 'None'
         clean_name = item_input
@@ -673,7 +668,6 @@ class TradingTicketSystem:
             for alias in aliases:
                 if alias.lower() in item_input.lower():
                     detected_type = type_name
-                    # Remove type from name
                     clean_name = item_input.replace(alias, '').strip()
                     break
             if detected_type != 'None':
@@ -683,6 +677,44 @@ class TradingTicketSystem:
             'name': clean_name,
             'type': detected_type,
             'is_hyperchrome': False
+        }
+
+    def _get_hyperchrome_from_api(self, hyper_name, api_data):
+        """Get hyperchrome from API, prioritizing 2023 version"""
+        # Look for hyperchrome with 2023 year first
+        hyperchrome_name_2023 = f"{hyper_name} 2023 (HyperChrome)"
+        if hyperchrome_name_2023 in api_data:
+            return {
+                'name': hyper_name,  # Display name without (HyperChrome)
+                'type': 'HyperChrome',
+                'is_hyperchrome': True,
+                'api_name': hyperchrome_name_2023
+            }
+
+        # Try without year but with HyperChrome tag
+        hyperchrome_name_normal = f"{hyper_name} (HyperChrome)"
+        if hyperchrome_name_normal in api_data:
+            return {
+                'name': hyper_name,
+                'type': 'HyperChrome',
+                'is_hyperchrome': True,
+                'api_name': hyperchrome_name_normal
+            }
+
+        # Fallback to original name if found in API
+        if hyper_name in api_data:
+            return {
+                'name': hyper_name,
+                'type': 'HyperChrome',
+                'is_hyperchrome': True,
+                'api_name': hyper_name
+            }
+
+        # Return even if not found in API
+        return {
+            'name': hyper_name,
+            'type': 'HyperChrome',
+            'is_hyperchrome': True
         }
 
     def calculate_robux_rate(self, total_millions):
@@ -1316,14 +1348,14 @@ class ItemModal(discord.ui.Modal):
         type_match = re.search(r'\(([^)]*)\)', item_name)
         item_type = type_match.group(1) if type_match else "Unknown"
 
-        # For hyperchromes, remove year from display name
-        if item_type == "Hyperchrome":
+        # For hyperchromes, remove year from display name and clean up
+        if item_type == "HyperChrome" or "hyperchrome" in item_type.lower():
             # Remove any year (2022, 2023, 2024, etc.) from the clean name
             clean_name = re.sub(r'\b(202[2-9]|20[3-9][0-9])\b', '', clean_name).strip()
-
-        # Get item type from the full name
-        type_match = re.search(r'\(([^)]*)\)', item_name)
-        final_item_type = type_match.group(1) if type_match else item_type
+            # Set the correct type
+            final_item_type = "HyperChrome"
+        else:
+            final_item_type = item_type
 
 
         item_entry = {
@@ -1413,7 +1445,7 @@ class PaymentMethodView(discord.ui.View):
         group_button = discord.ui.Button(
             label='Group Donation Method',
             style=discord.ButtonStyle.primary,
-            emoji='👥',
+            emoji='<:GroupLOGO:1411125220873474179>',
             custom_id='payment_group'
         )
         group_button.callback = self.group_method
@@ -1503,6 +1535,7 @@ class UsernameModal(discord.ui.Modal):
     def __init__(self, parent_view, method="gamepass"):
         super().__init__(title="Roblox Username")
         self.parent_view = parent_view
+        self.ticket_system = parent_view.ticket_system
         self.method = method
 
         self.username = discord.ui.TextInput(
@@ -1530,7 +1563,7 @@ class UsernameModal(discord.ui.Modal):
             user_id = client.get_user_id_by_username(username)
 
             if not user_id:
-                error_embed = await self.parent_view.create_error_embed(
+                error_embed = await self.ticket_system.create_error_embed(
                     "User Not Found",
                     f"No username exists with the name '{username}'!"
                 )
@@ -1549,11 +1582,11 @@ class UsernameModal(discord.ui.Modal):
             }
 
             # Create account confirmation embed
-            confirmation_embed = await self.parent_view.create_account_confirmation_embed(roblox_user_data)
+            confirmation_embed = await self.ticket_system.create_account_confirmation_embed(roblox_user_data)
 
             # Create confirmation view
             confirmation_view = AccountConfirmationView(
-                self.parent_view,
+                self.ticket_system,
                 self.parent_view.user_id,
                 self.parent_view.items_list,
                 roblox_user_data,
@@ -1563,13 +1596,13 @@ class UsernameModal(discord.ui.Modal):
             await interaction.edit_original_response(embed=confirmation_embed, view=confirmation_view)
 
         except ImportError:
-            error_embed = await self.parent_view.create_error_embed(
+            error_embed = await self.ticket_system.create_error_embed(
                 "System Error",
                 "Roblox integration is not available. Please contact an administrator."
             )
             await interaction.followup.send(embed=error_embed, ephemeral=True)
         except Exception as e:
-            error_embed = await self.parent_view.create_error_embed(
+            error_embed = await self.ticket_system.create_error_embed(
                 "Error",
                 f"An error occurred while processing your request: {str(e)}"
             )
