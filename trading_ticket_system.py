@@ -459,18 +459,40 @@ class TradingTicketSystem:
         """Monitor GamePass price changes"""
         try:
             from roblox_gamepasslink import GamePassLink
+            from roblox_sync import RobloxClient
             
-            client = GamePassLink()
+            gamepass_client = GamePassLink()
+            roblox_client = RobloxClient()
+            
+            # Get the user ID and experience ID for monitoring
+            user_id = roblox_client.get_user_id_by_username(username)
+            if not user_id:
+                print(f"Could not find user ID for {username}")
+                return
+                
+            experiences = roblox_client.get_user_experiences(user_id)
+            if not experiences:
+                print(f"No experiences found for {username}")
+                return
+                
+            experience_id = experiences[0].get('id')
             
             while True:
                 await asyncio.sleep(5)  # Check every 5 seconds
                 
                 try:
-                    # Get GamePass details directly
-                    gamepass_details = client.get_game_pass_details(gamepass_id)
+                    # Get all GamePass from the experience
+                    all_gamepasses = gamepass_client.get_game_passes(experience_id)
                     
-                    if gamepass_details:
-                        current_price = gamepass_details.get('price')
+                    # Find our specific GamePass
+                    target_gamepass = None
+                    for gp in all_gamepasses:
+                        if gp.get('id') == gamepass_id:
+                            target_gamepass = gp
+                            break
+                    
+                    if target_gamepass:
+                        current_price = target_gamepass.get('price')
                         
                         if current_price is not None and current_price != 0:  # Price was set
                             if current_price == expected_price:
@@ -511,6 +533,8 @@ class TradingTicketSystem:
                                     embed=error_embed
                                 )
                                 # Continue monitoring for price changes
+                    else:
+                        print(f"GamePass {gamepass_id} not found in experience {experience_id}")
                                 
                 except Exception as e:
                     print(f"Error in GamePass price monitoring: {e}")
