@@ -316,7 +316,7 @@ class TradingTicketSystem:
         """Create embed for 2-week waiting period"""
         embed = discord.Embed(
             title="<:GroupLOGO:1411125220873474179> Welcome to our Group!",
-            description=f"Welcome @{roblox_username}, you have just joined our group! Nous allons maintenant procéder au transfert de véhicules. A noté que lorsque vous rejoignez notre groupe le paiement pourra se faire dans le délai de 2 semaines.",
+            description=f"Welcome @{roblox_username}, you have just joined our group! We will now proceed with the transfer of vehicles. Please note that when you join our group, payment can be made within 2 weeks.",
             color=0x00ff88
         )
 
@@ -354,7 +354,7 @@ class TradingTicketSystem:
         """Create embed for cancel confirmation"""
         embed = discord.Embed(
             title="<:ErrorLOGO:1387810170155040888> Cancel Transaction",
-            description="Êtes-vous sûr de vouloir arrêter le selling? En annulant, ce ticket sera complètement supprimé et il n'y aura pas de retour en arrière.",
+            description="Are you sure you want to stop selling? Canceling this ticket will be completely deleted and there will be no going back.",
             color=0xff0000
         )
         embed.set_footer(text=f"{self.bot.user.name} - Cancel Confirmation", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
