@@ -49,8 +49,14 @@ class TradingTicketSystem:
             self.data = {
                 "support_roles": [],
                 "ticket_category_id": None,
-                "active_tickets": {}
+                "active_tickets": {},
+                "ticket_states": {}  # Store ticket states for persistence
             }
+            self.save_data()
+        
+        # Ensure ticket_states exists for existing data files
+        if "ticket_states" not in self.data:
+            self.data["ticket_states"] = {}
             self.save_data()
 
     def save_data(self):
@@ -836,8 +842,102 @@ class TradingTicketSystem:
         new_channel_name = f"『🎟️』{self.channel_types[channel_type]}・{username_special}"
         try:
             await channel.edit(name=new_channel_name)
+            # Save channel type to persistent state
+            self.save_ticket_state(channel.id, user.id, {'channel_type': channel_type})
         except Exception as e:
             print(f"Error updating channel name: {e}")
+
+    def save_ticket_state(self, channel_id, user_id, state_data):
+        """Save ticket state for persistence"""
+        channel_key = str(channel_id)
+        if channel_key not in self.data['ticket_states']:
+            self.data['ticket_states'][channel_key] = {
+                'user_id': user_id,
+                'channel_type': 'default',
+                'current_step': 'options',
+                'items_list': [],
+                'payment_method': None,
+                'roblox_user_data': None,
+                'monitoring_data': None
+            }
+        
+        # Update with new state data
+        self.data['ticket_states'][channel_key].update(state_data)
+        self.save_data()
+
+    def get_ticket_state(self, channel_id):
+        """Get ticket state"""
+        channel_key = str(channel_id)
+        return self.data['ticket_states'].get(channel_key, None)
+
+    def remove_ticket_state(self, channel_id):
+        """Remove ticket state when ticket is closed"""
+        channel_key = str(channel_id)
+        if channel_key in self.data['ticket_states']:
+            del self.data['ticket_states'][channel_key]
+            self.save_data()
+
+    async def restore_ticket_view(self, channel, user_id):
+        """Restore the appropriate view based on saved state"""
+        state = self.get_ticket_state(channel.id)
+        if not state:
+            return None
+            
+        user = self.bot.get_user(user_id)
+        if not user:
+            return None
+
+        current_step = state.get('current_step', 'options')
+        items_list = state.get('items_list', [])
+        
+        if current_step == 'options':
+            embed = await self.create_ticket_options_embed(user)
+            view = TicketOptionsView(self, user_id)
+            return embed, view
+            
+        elif current_step == 'selling':
+            embed = await self.create_selling_list_embed(user, items_list)
+            view = SellingFormView(self, user_id)
+            view.items_list = items_list
+            view.update_buttons()
+            return embed, view
+            
+        elif current_step == 'payment_method':
+            embed = await self.create_payment_method_embed(user, items_list)
+            view = PaymentMethodView(self, user_id, items_list)
+            return embed, view
+            
+        elif current_step == 'account_confirmation':
+            roblox_user_data = state.get('roblox_user_data')
+            payment_method = state.get('payment_method')
+            if roblox_user_data and payment_method:
+                embed = await self.create_account_confirmation_embed(roblox_user_data)
+                view = AccountConfirmationView(self, user_id, items_list, roblox_user_data, payment_method)
+                return embed, view
+                
+        elif current_step == 'gamepass_monitoring':
+            monitoring_data = state.get('monitoring_data')
+            if monitoring_data:
+                # Restore gamepass monitoring
+                await self.start_gamepass_monitoring(
+                    channel, user, monitoring_data['username'], 
+                    monitoring_data['experience_id'], items_list, 
+                    monitoring_data['expected_price']
+                )
+                
+        elif current_step == 'group_monitoring':
+            monitoring_data = state.get('monitoring_data')
+            if monitoring_data:
+                # Restore group monitoring
+                from roblox_OnJoinGroup import group_monitor
+                if group_monitor:
+                    await group_monitor.start_group_monitoring(
+                        channel, user, monitoring_data['user_id'], 
+                        monitoring_data['group_id'], items_list, 
+                        monitoring_data['total_robux'], monitoring_data['roblox_username'], self
+                    )
+                    
+        return None
 
     async def create_error_embed(self, title, description):
         """Create error embed for various error messages"""
@@ -1089,6 +1189,12 @@ class TicketPanelView(discord.ui.View):
         self.ticket_system.data['active_tickets'][user_id] = ticket_channel.id
         self.ticket_system.save_data()
 
+        # Save initial ticket state
+        self.ticket_system.save_ticket_state(ticket_channel.id, interaction.user.id, {
+            'channel_type': 'default',
+            'current_step': 'options'
+        })
+
         # Send options embed in ticket channel
         options_embed = await self.ticket_system.create_ticket_options_embed(interaction.user)
         view = TicketOptionsView(self.ticket_system, interaction.user.id)
@@ -1110,6 +1216,12 @@ class TicketOptionsView(discord.ui.View):
 
         # Update channel name to selling type
         await self.ticket_system.update_channel_type(interaction.channel, interaction.user, 'selling')
+
+        # Save selling state
+        self.ticket_system.save_ticket_state(interaction.channel.id, self.user_id, {
+            'current_step': 'selling',
+            'items_list': []
+        })
 
         # Create selling embed
         selling_embed = await self.ticket_system.create_selling_embed(interaction.user)
@@ -1134,6 +1246,11 @@ class TicketOptionsView(discord.ui.View):
 
         # Update channel name to buying type
         await self.ticket_system.update_channel_type(interaction.channel, interaction.user, 'buying')
+
+        # Save buying state
+        self.ticket_system.save_ticket_state(interaction.channel.id, self.user_id, {
+            'current_step': 'buying'
+        })
 
         await interaction.response.send_message("Buying option will be implemented soon! Please choose Selling for now.", ephemeral=True)
 
@@ -1211,6 +1328,12 @@ class SellingFormView(discord.ui.View):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
+        # Save payment method state
+        self.ticket_system.save_ticket_state(interaction.channel.id, self.user_id, {
+            'current_step': 'payment_method',
+            'items_list': self.items_list
+        })
+
         # Go to payment method selection
         payment_embed = await self.ticket_system.create_payment_method_embed(interaction.user, self.items_list)
         view = PaymentMethodView(self.ticket_system, self.user_id, self.items_list)
@@ -1221,8 +1344,12 @@ class SellingFormView(discord.ui.View):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
-        # Reset channel name to default when going back to options
-        await self.ticket_system.update_channel_type(interaction.channel, interaction.user, 'default')
+        # Keep current channel type, don't reset to default
+        # Save options state without changing channel type
+        self.ticket_system.save_ticket_state(interaction.channel.id, self.user_id, {
+            'current_step': 'options',
+            'items_list': []
+        })
 
         # Go back to ticket options
         options_embed = await self.ticket_system.create_ticket_options_embed(interaction.user)
@@ -1537,6 +1664,11 @@ class ItemModal(discord.ui.Modal):
         # Update buttons based on current items
         self.parent_view.update_buttons()
 
+        # Save updated items list to state
+        self.parent_view.ticket_system.save_ticket_state(interaction.channel.id, self.parent_view.user_id, {
+            'items_list': self.parent_view.items_list
+        })
+
         # Update the embed
         new_embed = await self.parent_view.ticket_system.create_selling_list_embed(
             interaction.user,
@@ -1713,6 +1845,13 @@ class UsernameModal(discord.ui.Modal):
                 'avatar_url': avatar_url
             }
 
+            # Save account confirmation state
+            self.ticket_system.save_ticket_state(interaction.channel.id, self.parent_view.user_id, {
+                'current_step': 'account_confirmation',
+                'roblox_user_data': roblox_user_data,
+                'payment_method': self.method
+            })
+
             # Create account confirmation embed
             confirmation_embed = await self.ticket_system.create_account_confirmation_embed(roblox_user_data)
 
@@ -1826,6 +1965,17 @@ class AccountConfirmationView(discord.ui.View):
             await interaction.edit_original_response(embed=payment_embed, view=disabled_view)
             await interaction.followup.send(embed=result_embed)
 
+            # Save gamepass monitoring state
+            monitoring_data = {
+                'username': self.roblox_user_data['name'],
+                'experience_id': universe_id,
+                'expected_price': expected_price
+            }
+            self.ticket_system.save_ticket_state(interaction.channel.id, self.user_id, {
+                'current_step': 'gamepass_monitoring',
+                'monitoring_data': monitoring_data
+            })
+
             # Start GamePass monitoring
             await self.ticket_system.start_gamepass_monitoring(
                 interaction.channel,
@@ -1907,6 +2057,18 @@ class AccountConfirmationView(discord.ui.View):
                 join_embed = await self.ticket_system.create_group_join_embed()
                 await interaction.followup.send(embed=join_embed)
 
+                # Save group monitoring state
+                monitoring_data = {
+                    'user_id': user_id,
+                    'group_id': group_id,
+                    'total_robux': total_robux,
+                    'roblox_username': self.roblox_user_data['name']
+                }
+                self.ticket_system.save_ticket_state(interaction.channel.id, self.user_id, {
+                    'current_step': 'group_monitoring',
+                    'monitoring_data': monitoring_data
+                })
+
                 # Start monitoring for group join using the dedicated module
                 if group_monitor:
                     await group_monitor.start_group_monitoring(
@@ -1974,8 +2136,16 @@ class CancelConfirmationView(discord.ui.View):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
-        # Delete the channel
+        # Delete the channel and cleanup state
+        channel_id = interaction.channel.id
         await interaction.response.defer()
+        
+        # Remove from active tickets and states
+        user_id = str(self.user.id)
+        if user_id in self.ticket_system.data['active_tickets']:
+            del self.ticket_system.data['active_tickets'][user_id]
+        self.ticket_system.remove_ticket_state(channel_id)
+        
         await interaction.channel.delete(reason="Transaction cancelled by user")
 
     @discord.ui.button(label='Cancel', style=discord.ButtonStyle.secondary, emoji='<:CloseLOGO:1411114868471496717>', custom_id='cancel_cancel')
@@ -2132,6 +2302,35 @@ def setup_trading_ticket_system(bot):
 
     # Add persistent views on bot startup
     bot.add_view(TicketPanelView(ticket_system))
+
+    # Restore persistent views for existing tickets
+    async def restore_persistent_views():
+        await bot.wait_until_ready()
+        try:
+            for channel_id_str, state in ticket_system.data.get('ticket_states', {}).items():
+                try:
+                    channel_id = int(channel_id_str)
+                    channel = bot.get_channel(channel_id)
+                    if channel:
+                        user_id = state.get('user_id')
+                        result = await ticket_system.restore_ticket_view(channel, user_id)
+                        if result:
+                            embed, view = result
+                            # Find the last message in the channel and edit it
+                            async for message in channel.history(limit=10):
+                                if message.author == bot.user and message.embeds:
+                                    await message.edit(embed=embed, view=view)
+                                    break
+                    else:
+                        # Channel doesn't exist anymore, clean up state
+                        ticket_system.remove_ticket_state(channel_id)
+                except Exception as e:
+                    print(f"Error restoring view for channel {channel_id_str}: {e}")
+        except Exception as e:
+            print(f"Error in restore_persistent_views: {e}")
+
+    # Run the restoration in the background
+    bot.loop.create_task(restore_persistent_views())
 
     @bot.tree.command(name="trading_ticket", description="Create a trading ticket panel")
     @app_commands.describe(channel="Channel where to send the ticket panel (optional)")
