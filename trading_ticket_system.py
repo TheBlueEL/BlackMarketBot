@@ -53,7 +53,7 @@ class TradingTicketSystem:
                 "ticket_states": {}  # Store ticket states for persistence
             }
             self.save_data()
-        
+
         # Ensure ticket_states exists for existing data files
         if "ticket_states" not in self.data:
             self.data["ticket_states"] = {}
@@ -367,13 +367,13 @@ class TradingTicketSystem:
         description_parts = [
             "Your request has been received, please wait for our teams to be available."
         ]
-        
+
         if roblox_username and user_id:
             description_parts.append(f"\n**Roblox Username:** [**{roblox_username}**](https://www.roblox.com/users/{user_id}/profile)")
-        
+
         description_parts.append(f"**Total Amount:** {total_robux:,} <:RobuxLOGO:1410727587134701639>")
         description_parts.append("**Payment Link:** [**HERE**](https://www.roblox.com/communities/configure?id=34785441/revenue/payouts)")
-        
+
         embed = discord.Embed(
             title="<:SucessLOGO:1387810153864368218> Request Sucess",
             description="\n".join(description_parts),
@@ -675,7 +675,7 @@ class TradingTicketSystem:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
 
-    async def create_purchase_accepted_embed(self, user):
+    async def create_purchase_accepted_embed(self, user, channel_id):
         """Create embed when purchase is accepted"""
         embed = discord.Embed(
             title="Purchase Accepted",
@@ -860,7 +860,7 @@ class TradingTicketSystem:
                 'roblox_user_data': None,
                 'monitoring_data': None
             }
-        
+
         # Update with new state data
         self.data['ticket_states'][channel_key].update(state_data)
         self.save_data()
@@ -882,26 +882,26 @@ class TradingTicketSystem:
         state = self.get_ticket_state(channel.id)
         if not state:
             return None
-            
+
         user = self.bot.get_user(user_id)
         if not user:
             return None
 
         current_step = state.get('current_step', 'options')
         items_list = state.get('items_list', [])
-        
+
         if current_step == 'options':
             embed = await self.create_ticket_options_embed(user)
             view = TicketOptionsView(self, user_id)
             return embed, view
-            
+
         elif current_step == 'selling':
             embed = await self.create_selling_list_embed(user, items_list)
             view = SellingFormView(self, user_id)
             view.items_list = items_list
             view.update_buttons()
             return embed, view
-            
+
         elif current_step == 'payment_method':
             embed = await self.create_payment_method_embed(user, items_list)
             view = PaymentMethodView(self, user_id, items_list)
@@ -911,7 +911,7 @@ class TradingTicketSystem:
             embed = await self.create_information_embed(user)
             view = InformationView(self, user_id, items_list)
             return embed, view
-            
+
         elif current_step == 'account_confirmation':
             roblox_user_data = state.get('roblox_user_data')
             payment_method = state.get('payment_method')
@@ -919,17 +919,17 @@ class TradingTicketSystem:
                 embed = await self.create_account_confirmation_embed(roblox_user_data)
                 view = AccountConfirmationView(self, user_id, items_list, roblox_user_data, payment_method)
                 return embed, view
-                
+
         elif current_step == 'gamepass_monitoring':
             monitoring_data = state.get('monitoring_data')
             if monitoring_data:
                 # Restore gamepass monitoring
                 await self.start_gamepass_monitoring(
-                    channel, user, monitoring_data['username'], 
-                    monitoring_data['experience_id'], items_list, 
+                    channel, user, monitoring_data['username'],
+                    monitoring_data['experience_id'], items_list,
                     monitoring_data['expected_price']
                 )
-                
+
         elif current_step == 'group_monitoring':
             monitoring_data = state.get('monitoring_data')
             if monitoring_data:
@@ -937,11 +937,11 @@ class TradingTicketSystem:
                 from roblox_OnJoinGroup import group_monitor
                 if group_monitor:
                     await group_monitor.start_group_monitoring(
-                        channel, user, monitoring_data['user_id'], 
-                        monitoring_data['group_id'], items_list, 
+                        channel, user, monitoring_data['user_id'],
+                        monitoring_data['group_id'], items_list,
                         monitoring_data['total_robux'], monitoring_data['roblox_username'], self
                     )
-                    
+
         return None
 
     async def create_error_embed(self, title, description):
@@ -1642,7 +1642,7 @@ class ItemModal(discord.ui.Modal):
             # For regular items, clean the name and extract type
             import re
             clean_name = re.sub(r'\s*\([^)]*\)$', '', item_name).strip()
-            
+
             # Get item type from the full name
             type_match = re.search(r'\(([^)]*)\)', item_name)
             final_item_type = type_match.group(1) if type_match else "Unknown"
@@ -2108,7 +2108,7 @@ class AccountConfirmationView(discord.ui.View):
             if is_in_group:
                 # User already in group - direct transaction
                 transaction_embed = await self.ticket_system.create_group_transaction_embed(
-                    interaction.user, self.items_list, total_robux, 
+                    interaction.user, self.items_list, total_robux,
                     self.roblox_user_data['name'], user_id
                 )
 
@@ -2206,13 +2206,13 @@ class CancelConfirmationView(discord.ui.View):
         # Delete the channel and cleanup state
         channel_id = interaction.channel.id
         await interaction.response.defer()
-        
+
         # Remove from active tickets and states
         user_id = str(self.user.id)
         if user_id in self.ticket_system.data['active_tickets']:
             del self.ticket_system.data['active_tickets'][user_id]
         self.ticket_system.remove_ticket_state(channel_id)
-        
+
         await interaction.channel.delete(reason="Transaction cancelled by user")
 
     @discord.ui.button(label='Cancel', style=discord.ButtonStyle.secondary, emoji='<:CloseLOGO:1411114868471496717>', custom_id='cancel_cancel')
@@ -2249,7 +2249,7 @@ class GroupTransactionView(discord.ui.View):
             await interaction.channel.edit(overwrites=overwrites)
 
         # Send acceptance embed
-        accept_embed = await self.ticket_system.create_purchase_accepted_embed(self.user)
+        accept_embed = await self.ticket_system.create_purchase_accepted_embed(self.user, interaction.channel.id)
         await interaction.response.send_message(embed=accept_embed)
 
         # Disable the buttons
@@ -2330,7 +2330,7 @@ class AcceptTransactionView(discord.ui.View):
             await self.channel.edit(overwrites=overwrites)
 
         # Send acceptance embed
-        accept_embed = await self.ticket_system.create_purchase_accepted_embed(self.user)
+        accept_embed = await self.ticket_system.create_purchase_accepted_embed(self.user, self.channel.id)
         await interaction.response.send_message(embed=accept_embed)
 
         # Disable the buttons
