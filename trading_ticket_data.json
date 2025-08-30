@@ -9,7 +9,7 @@
     "1383581749006827623": 1410798551759454258,
     "459039275116265492": 1411016705291059261,
     "291595735118512129": 1411356658206113802,
-    "723144097015136296": 1411363298695450705
+    "723144097015136296": 1411378007792287765
   },
   "obtainable": [
     "Concept"
@@ -20,5 +20,32 @@
     "Brulee (Vehicle)",
     "Roadster (Vehicle)"
   ],
-  "ticket_states": {}
+  "ticket_states": {
+    "1411378007792287765": {
+      "user_id": 723144097015136296,
+      "channel_type": "selling",
+      "current_step": "payment_method",
+      "items_list": [
+        {
+          "name": "Parisian",
+          "quantity": 1,
+          "status": "Clean",
+          "value": 8000000,
+          "type": "Vehicle"
+        },
+        {
+          "name": "Javelin",
+          "quantity": 1,
+          "status": "Clean",
+          "value": 45000000,
+          "type": "Vehicle"
+        }
+      ],
+      "payment_method": null,
+      "roblox_user_data": null,
+      "monitoring_data": null,
+      "creator_username": "theblueel",
+      "creator_display_name": "TheBlueEL"
+    }
+  }
 }
