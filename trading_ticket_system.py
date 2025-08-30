@@ -846,6 +846,105 @@ class TradingTicketSystem:
             'is_hyperchrome': True
         }
 
+    def validate_item_requirements(self, item_name, item_data, clean_item_name):
+        """Validate if item meets requirements (value >= 2.5M and not obtainable)"""
+        # Check cash value
+        cash_value_str = item_data.get('Cash Value', '0')
+        try:
+            if isinstance(cash_value_str, str):
+                import re
+                clean_cash_value_str = re.sub(r'[\s,\u00A0\u2000-\u200B\u202F\u205F\u3000]+', '', cash_value_str)
+                if clean_cash_value_str.lower() in ['n/a', 'unknown', '']:
+                    cash_value = 0
+                else:
+                    cash_value = int(clean_cash_value_str)
+            else:
+                cash_value = cash_value_str
+        except (ValueError, TypeError):
+            cash_value = 0
+
+        # Check if value is >= 2.5M
+        if cash_value < 2500000:
+            return False, f"The **{clean_item_name}** not has a value below 2.5M and can't be selected!"
+
+        # Check if obtainable
+        try:
+            obtainable_items = self.data.get('obtainable', [])
+        except:
+            obtainable_items = []
+
+        if clean_item_name in obtainable_items:
+            return False, "This item cannot be added because it is worth less than 2.5M or it is obtainable."
+
+        return True, None
+
+    def find_best_item_match(self, item_input):
+        """Find the best matching item using stockage system"""
+        parsed_item = self.parse_item_with_hyperchrome(item_input)
+
+        from stockage_system import StockageSystem
+        stockage_system = StockageSystem()
+
+        # Find the item with specific type preference
+        item_type = parsed_item.get('type', 'None')
+        best_match, duplicates = stockage_system.find_best_match(parsed_item['name'], item_type)
+
+        if not best_match:
+            return None, f"The **{item_input}** not found in our database."
+
+        # Handle duplicates with priority order
+        if len(duplicates) > 1:
+            # Use priority order from item_request.json
+            try:
+                with open('item_request.json', 'r', encoding='utf-8') as f:
+                    item_request_data = json.load(f)
+                priority_order = item_request_data.get('priority_order', {
+                    "HyperChrome": 0, "Vehicle": 1, "Rim": 2, "Spoiler": 3, "Body Color": 4, "Texture": 5,
+                    "Tire Sticker": 6, "Tire Style": 7, "Drift": 8, "Furniture": 9, "Horn": 10, "Weapon Skin": 11
+                })
+            except:
+                priority_order = {
+                    "HyperChrome": 0, "Vehicle": 1, "Rim": 2, "Spoiler": 3, "Body Color": 4, "Texture": 5,
+                    "Tire Sticker": 6, "Tire Style": 7, "Drift": 8, "Furniture": 9, "Horn": 10, "Weapon Skin": 11
+                }
+
+            # Look for exact name match first
+            exact_matches = []
+            for item_name_dup, item_data_dup in duplicates:
+                clean_name = item_name_dup.split('(')[0].strip().lower()
+                input_name = item_input.strip().lower()
+                if clean_name == input_name:
+                    exact_matches.append((item_name_dup, item_data_dup))
+
+            def get_priority_score(item_tuple):
+                item_name_dup, item_data_dup = item_tuple
+                # Extract type from item name
+                if "(HyperChrome)" in item_name_dup or "hyperchrome" in item_name_dup.lower():
+                    item_type_detected = "HyperChrome"
+                else:
+                    import re
+                    match = re.search(r'\(([^)]+)\)$', item_name_dup)
+                    if match:
+                        item_type_detected = match.group(1)
+                    else:
+                        item_type_detected = "Unknown"
+
+                # Return priority score (lower = higher priority)
+                return priority_order.get(item_type_detected, 999)
+
+            if len(exact_matches) == 1:
+                best_match = exact_matches[0]
+            elif len(exact_matches) > 1:
+                # Multiple exact matches, use priority order
+                sorted_matches = sorted(exact_matches, key=get_priority_score)
+                best_match = sorted_matches[0]
+            else:
+                # No exact matches, use priority order on all duplicates
+                sorted_duplicates = sorted(duplicates, key=get_priority_score)
+                best_match = sorted_duplicates[0]
+
+        return best_match, None
+
     def calculate_robux_rate(self, total_millions):
         """Calculate Robux rate based on total value in millions"""
         if total_millions < 150:
