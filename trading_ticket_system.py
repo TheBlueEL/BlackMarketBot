@@ -119,9 +119,14 @@ class TradingTicketSystem:
             total_value = 0
 
             for item in items_list:
-                key = f"{item['name']} ({item['type']})"
+                # Format item name - don't show (HyperChrome) for hyperchromes, always show status
+                if item['type'] == 'HyperChrome':
+                    key = f"{item['name']} ({item['status']})"
+                else:
+                    key = f"{item['name']} ({item['type']}) ({item['status']})"
+
                 if key not in grouped_items:
-                    grouped_items[key] = {'quantity': 0, 'total_value': 0, 'status': item['status']}
+                    grouped_items[key] = {'quantity': 0, 'total_value': 0}
 
                 grouped_items[key]['quantity'] += item['quantity']
                 grouped_items[key]['total_value'] += item['value'] * item['quantity']
@@ -199,7 +204,12 @@ class TradingTicketSystem:
         # Group items for display
         grouped_items = {}
         for item in items_list:
-            key = f"{item['name']} ({item['type']}) ({item['status']})"
+            # Format item name - don't show (HyperChrome) for hyperchromes, always show status
+            if item['type'] == 'HyperChrome':
+                key = f"{item['name']} ({item['status']})"
+            else:
+                key = f"{item['name']} ({item['type']}) ({item['status']})"
+
             if key not in grouped_items:
                 grouped_items[key] = {'quantity': 0, 'total_value': 0}
 
@@ -345,7 +355,12 @@ class TradingTicketSystem:
         # Group items for display
         grouped_items = {}
         for item in items_list:
-            key = f"{item['name']} ({item['type']}) ({item['status']})"
+            # Format item name - don't show (HyperChrome) for hyperchromes, always show status
+            if item['type'] == 'HyperChrome':
+                key = f"{item['name']} ({item['status']})"
+            else:
+                key = f"{item['name']} ({item['type']}) ({item['status']})"
+
             if key not in grouped_items:
                 grouped_items[key] = {'quantity': 0, 'robux_price': 0}
 
@@ -420,7 +435,12 @@ class TradingTicketSystem:
         total_robux = 0
 
         for item in items_list:
-            key = f"{item['name']} ({item['type']}) ({item['status']})"
+            # Format item name - don't show (HyperChrome) for hyperchromes, always show status
+            if item['type'] == 'HyperChrome':
+                key = f"{item['name']} ({item['status']})"
+            else:
+                key = f"{item['name']} ({item['type']}) ({item['status']})"
+
             if key not in grouped_items:
                 grouped_items[key] = {'quantity': 0, 'robux_price': 0}
 
@@ -513,7 +533,12 @@ class TradingTicketSystem:
         # Group items for display
         grouped_items = {}
         for item in items_list:
-            key = f"{item['name']} ({item['type']}) ({item['status']})"
+            # Format item name - don't show (HyperChrome) for hyperchromes, always show status
+            if item['type'] == 'HyperChrome':
+                key = f"{item['name']} ({item['status']})"
+            else:
+                key = f"{item['name']} ({item['type']}) ({item['status']})"
+
             if key not in grouped_items:
                 grouped_items[key] = {'quantity': 0, 'robux_price': 0}
 
@@ -642,7 +667,7 @@ class TradingTicketSystem:
 
         # Check for hyperchrome patterns first
         hyper_data = item_data.get('hyper', {})
-        
+
         # First pass: look for exact matches in aliases (priorité absolue)
         input_stripped = item_input.strip()
         for hyper_name, aliases in hyper_data.items():
@@ -652,24 +677,24 @@ class TradingTicketSystem:
                     return self._get_hyperchrome_from_api(hyper_name, api_data)
 
         # Second pass: try to match partial patterns like "Purple 5" → "HyperPurple Level 5"
-        input_lower = input_input.lower().strip()
-        
+        input_lower = item_input.lower().strip()
+
         # Extract color and level from input
         import re
-        
+
         # Pattern for "Color Level" or "Color L" or just "Color Number"
         color_level_patterns = [
             r'^(blue|red|yellow|orange|pink|purple|diamond|green)\s+(level\s*)?(\d+)$',
             r'^(blue|red|yellow|orange|pink|purple|diamond|green)\s+l(\d+)$',
             r'^(blue|red|yellow|orange|pink|purple|diamond|green)\s+(\d+)$'
         ]
-        
+
         for pattern in color_level_patterns:
             match = re.match(pattern, input_lower)
             if match:
                 color = match.group(1).capitalize()
                 level = match.group(-1)  # Last group is always the number
-                
+
                 # Try to find exact matching hyperchrome
                 target_name = f"Hyper{color} Level {level}"
                 print(f"DEBUG: Pattern match found, looking for '{target_name}'")
@@ -681,7 +706,7 @@ class TradingTicketSystem:
             # Check if input matches the hyperchrome name pattern
             clean_hyper = hyper_name.lower().replace("hyper", "").replace("level", "").replace("l", "").strip()
             clean_input = input_lower.replace("hyper", "").replace("level", "").replace("l", "").strip()
-            
+
             if clean_input in clean_hyper or clean_hyper in clean_input:
                 return self._get_hyperchrome_from_api(hyper_name, api_data)
 
@@ -708,7 +733,7 @@ class TradingTicketSystem:
     def _get_hyperchrome_from_api(self, hyper_name, api_data):
         """Get hyperchrome from API, prioritizing 2023 version"""
         print(f"DEBUG: Looking for hyperchrome '{hyper_name}' in API")
-        
+
         # Look for hyperchrome with 2023 year first
         hyperchrome_name_2023 = f"{hyper_name} 2023 (HyperChrome)"
         print(f"DEBUG: Trying to find '{hyperchrome_name_2023}'")
@@ -1328,7 +1353,7 @@ class ItemModal(discord.ui.Modal):
         # Vérifier si la valeur est >= 2.5M
         if cash_value < 2500000:
             error_embed = await self.parent_view.ticket_system.create_error_embed(
-                "Item Value Too Low",
+                "Item Not Found",
                 f"Item '{clean_item_name}' not found in database or has a value below 2.5M!"
             )
             await interaction.followup.send(embed=error_embed, ephemeral=True)
@@ -1785,7 +1810,7 @@ class AccountConfirmationView(discord.ui.View):
             # Disable buttons on current embed (confirmation embed)
             disabled_view = discord.ui.View()
             disabled_view.timeout = None
-            
+
             # Add disabled buttons
             confirm_button = discord.ui.Button(
                 label='Confirm',
@@ -1801,10 +1826,10 @@ class AccountConfirmationView(discord.ui.View):
                 custom_id='other_account_disabled',
                 disabled=True
             )
-            
+
             disabled_view.add_item(confirm_button)
             disabled_view.add_item(other_button)
-            
+
             # Update the current embed with disabled buttons
             await interaction.edit_original_response(view=disabled_view)
 
