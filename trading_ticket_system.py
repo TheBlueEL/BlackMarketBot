@@ -1955,7 +1955,7 @@ class AccountConfirmationView(discord.ui.View):
         self.roblox_user_data = roblox_user_data
         self.method = method
 
-    @discord.ui.button(label='Confirm', emoji='<:ConfirmLOGO:1410970202191171797>', style=discord.ButtonStyle.success, custom_id='confirm_account')
+    @discord.ui.button(label='Confirm', emoji='<:ConfirmLOGO:1410970202191171797>', style=discord.ButtonStyle.success, custom_id='confirm_account_persistent')
     async def confirm_account(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
@@ -1968,7 +1968,7 @@ class AccountConfirmationView(discord.ui.View):
         elif self.method == "group":
             await self._handle_group_method(interaction)
 
-    @discord.ui.button(label='Other Account', style=discord.ButtonStyle.secondary, emoji='<:Update_LOGO:1411113397742997504>', custom_id='other_account')
+    @discord.ui.button(label='Other Account', style=discord.ButtonStyle.secondary, emoji='<:Update_LOGO:1411113397742997504>', custom_id='other_account_persistent')
     async def other_account(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
@@ -2117,6 +2117,7 @@ class AccountConfirmationView(discord.ui.View):
                     total_robux, self.roblox_user_data['name']
                 )
 
+                # Send the embed with ping attached to the same message
                 content = f"{interaction.user.mention} <@&1300798850788757564>"
                 await interaction.followup.send(content=content, embed=transaction_embed, view=view)
             else:
@@ -2160,7 +2161,7 @@ class WaitingPeriodView(discord.ui.View):
         self.roblox_username = roblox_username
         self.user_id = user_id
 
-    @discord.ui.button(label='Confirm', style=discord.ButtonStyle.success, emoji='<:ConfirmLOGO:1410970202191171797>', custom_id='confirm_waiting_period')
+    @discord.ui.button(label='Confirm', style=discord.ButtonStyle.success, emoji='<:ConfirmLOGO:1410970202191171797>', custom_id='confirm_waiting_period_persistent')
     async def confirm_waiting(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.user.id:
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
@@ -2180,7 +2181,7 @@ class WaitingPeriodView(discord.ui.View):
         await interaction.response.edit_message(embed=transaction_embed, view=view)
         await interaction.followup.send(content=content)
 
-    @discord.ui.button(label='Cancel', style=discord.ButtonStyle.danger, emoji='<:CloseLOGO:1411114868471496717>', custom_id='cancel_waiting_period')
+    @discord.ui.button(label='Cancel', style=discord.ButtonStyle.danger, emoji='<:CloseLOGO:1411114868471496717>', custom_id='cancel_waiting_period_persistent')
     async def cancel_waiting(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.user.id:
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
@@ -2197,7 +2198,7 @@ class CancelConfirmationView(discord.ui.View):
         self.ticket_system = ticket_system
         self.user = user
 
-    @discord.ui.button(label='Confirm', style=discord.ButtonStyle.danger, emoji='<:ConfirmLOGO:1410970202191171797>', custom_id='confirm_cancel')
+    @discord.ui.button(label='Confirm', style=discord.ButtonStyle.danger, emoji='<:ConfirmLOGO:1410970202191171797>', custom_id='confirm_cancel_persistent')
     async def confirm_cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.user.id:
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
@@ -2215,7 +2216,7 @@ class CancelConfirmationView(discord.ui.View):
 
         await interaction.channel.delete(reason="Transaction cancelled by user")
 
-    @discord.ui.button(label='Cancel', style=discord.ButtonStyle.secondary, emoji='<:CloseLOGO:1411114868471496717>', custom_id='cancel_cancel')
+    @discord.ui.button(label='Cancel', style=discord.ButtonStyle.secondary, emoji='<:CloseLOGO:1411114868471496717>', custom_id='cancel_cancel_persistent')
     async def cancel_cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.user.id:
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
@@ -2234,8 +2235,14 @@ class GroupTransactionView(discord.ui.View):
         self.total_robux = total_robux
         self.roblox_username = roblox_username
 
-    @discord.ui.button(label='Accept', style=discord.ButtonStyle.success, emoji='<:ConfirmLOGO:1410970202191171797>', custom_id='accept_group_transaction')
+    @discord.ui.button(label='Accept', style=discord.ButtonStyle.success, emoji='<:ConfirmLOGO:1410970202191171797>', custom_id='accept_group_transaction_persistent')
     async def accept_transaction(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Get ticket state for validation
+        state = self.ticket_system.get_ticket_state(interaction.channel.id)
+        if not state:
+            await interaction.response.send_message("This ticket is no longer valid!", ephemeral=True)
+            return
+
         # Check if user has the required role
         required_role_id = 1300798850788757564
         if not any(role.id == required_role_id for role in interaction.user.roles):
@@ -2256,8 +2263,14 @@ class GroupTransactionView(discord.ui.View):
         self.clear_items()
         await interaction.edit_original_response(view=self)
 
-    @discord.ui.button(label='Refuse', style=discord.ButtonStyle.danger, emoji='<:CloseLOGO:1411114868471496717>', custom_id='refuse_group_transaction')
+    @discord.ui.button(label='Refuse', style=discord.ButtonStyle.danger, emoji='<:CloseLOGO:1411114868471496717>', custom_id='refuse_group_transaction_persistent')
     async def refuse_transaction(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Get ticket state for validation
+        state = self.ticket_system.get_ticket_state(interaction.channel.id)
+        if not state:
+            await interaction.response.send_message("This ticket is no longer valid!", ephemeral=True)
+            return
+
         # Check if user has the required role
         required_role_id = 1300798850788757564
         if not any(role.id == required_role_id for role in interaction.user.roles):
@@ -2267,7 +2280,7 @@ class GroupTransactionView(discord.ui.View):
         modal = RefuseReasonModal(self.user, interaction.channel)
         await interaction.response.send_modal(modal)
 
-    @discord.ui.button(label='Information', emoji='<:InformationLOGO:1410970300841066496>', style=discord.ButtonStyle.secondary, custom_id='sell_info')
+    @discord.ui.button(label='Information', emoji='<:InformationLOGO:1410970300841066496>', style=discord.ButtonStyle.secondary, custom_id='sell_info_group_persistent')
     async def sell_information(self, interaction: discord.Interaction, button: discord.ui.Button):
         info_embed = await self.ticket_system.create_sell_info_embed(self.items_list)
         await interaction.response.send_message(embed=info_embed, ephemeral=True)
@@ -2315,8 +2328,14 @@ class AcceptTransactionView(discord.ui.View):
         self.channel = channel
         self.user = user
 
-    @discord.ui.button(label='Accept', style=discord.ButtonStyle.success, emoji='<:ConfirmLOGO:1410970202191171797>', custom_id='accept_transaction')
+    @discord.ui.button(label='Accept', style=discord.ButtonStyle.success, emoji='<:ConfirmLOGO:1410970202191171797>', custom_id='accept_transaction_persistent')
     async def accept_transaction(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Get ticket state for validation
+        state = self.ticket_system.get_ticket_state(interaction.channel.id)
+        if not state:
+            await interaction.response.send_message("This ticket is no longer valid!", ephemeral=True)
+            return
+
         # Check if user has the required role
         required_role_id = 1300798850788757564
         if not any(role.id == required_role_id for role in interaction.user.roles):
@@ -2337,8 +2356,14 @@ class AcceptTransactionView(discord.ui.View):
         self.clear_items()
         await interaction.edit_original_response(view=self)
 
-    @discord.ui.button(label='Refuse', style=discord.ButtonStyle.danger, emoji='<:CloseLOGO:1411114868471496717>', custom_id='refuse_gamepass_transaction')
+    @discord.ui.button(label='Refuse', style=discord.ButtonStyle.danger, emoji='<:CloseLOGO:1411114868471496717>', custom_id='refuse_gamepass_transaction_persistent')
     async def refuse_transaction(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Get ticket state for validation
+        state = self.ticket_system.get_ticket_state(interaction.channel.id)
+        if not state:
+            await interaction.response.send_message("This ticket is no longer valid!", ephemeral=True)
+            return
+
         # Check if user has the required role
         required_role_id = 1300798850788757564
         if not any(role.id == required_role_id for role in interaction.user.roles):
@@ -2348,7 +2373,7 @@ class AcceptTransactionView(discord.ui.View):
         modal = RefuseReasonModal(self.user, self.channel)
         await interaction.response.send_modal(modal)
 
-    @discord.ui.button(label='Information', style=discord.ButtonStyle.secondary, emoji='<:InformationLOGO:1410970300841066496>', custom_id='gamepass_sell_info')
+    @discord.ui.button(label='Information', style=discord.ButtonStyle.secondary, emoji='<:InformationLOGO:1410970300841066496>', custom_id='gamepass_sell_info_persistent')
     async def sell_information(self, interaction: discord.Interaction, button: discord.ui.Button):
         # This would require access to the items list, we'll implement this later
         await interaction.response.send_message("Sell information feature will be implemented.", ephemeral=True)
@@ -2373,6 +2398,11 @@ def setup_trading_ticket_system(bot):
     bot.add_view(SellingFormView(ticket_system, 0))  # dummy user_id for persistence
     bot.add_view(PaymentMethodView(ticket_system, 0, []))  # dummy values for persistence
     bot.add_view(InformationView(ticket_system, 0, []))  # dummy values for persistence
+    bot.add_view(AccountConfirmationView(ticket_system, 0, [], {}, "gamepass"))  # dummy values for persistence
+    bot.add_view(GroupTransactionView(ticket_system, None, [], 0, ""))  # dummy values for persistence
+    bot.add_view(AcceptTransactionView(ticket_system, None, None))  # dummy values for persistence
+    bot.add_view(WaitingPeriodView(ticket_system, None, [], 0, "", 0))  # dummy values for persistence
+    bot.add_view(CancelConfirmationView(ticket_system, None))  # dummy values for persistence
 
     # Restore persistent views for existing tickets
     async def restore_persistent_views():
