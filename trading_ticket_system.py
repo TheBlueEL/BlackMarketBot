@@ -313,12 +313,33 @@ class TradingTicketSystem:
         return embed
 
     async def create_waiting_period_embed(self, roblox_username, end_timestamp):
-        """Create embed for 2-week waiting period"""
-        embed = discord.Embed(
-            title="<:GroupLOGO:1411125220873474179> Welcome to our Group!",
-            description=f"Welcome @{roblox_username}, you have just joined our group! We will now proceed with the transfer of vehicles. Please note that when you join our group, payment can be made within 2 weeks.",
-            color=0x00ff88
-        )
+        """Create embed for 2-week waiting period with persistent countdown"""
+        import time
+        
+        current_time = int(time.time())
+        time_remaining = end_timestamp - current_time
+        
+        if time_remaining <= 0:
+            # Time has already expired
+            embed = discord.Embed(
+                title="<:GroupLOGO:1411125220873474179> Transaction Ready!",
+                description=f"Welcome @{roblox_username}, the 2-week waiting period has completed! You can now proceed with your transaction.",
+                color=0x00ff00
+            )
+        else:
+            # Calculate days, hours, minutes, seconds
+            days = time_remaining // 86400
+            hours = (time_remaining % 86400) // 3600
+            minutes = (time_remaining % 3600) // 60
+            seconds = time_remaining % 60
+            
+            time_text = f"{days} days, {hours} hours, {minutes} minutes, {seconds} seconds"
+            
+            embed = discord.Embed(
+                title="<:GroupLOGO:1411125220873474179> Welcome to our Group!",
+                description=f"Welcome @{roblox_username}, you have just joined our group! We will now proceed with the transfer of vehicles.\n\n**Time remaining:** {time_text}\n\nPlease note that when you join our group, payment can be made within 2 weeks.",
+                color=0x00ff88
+            )
 
         faq_text = """
 **Why wait 2 weeks?**
@@ -709,6 +730,7 @@ class TradingTicketSystem:
                     return self._get_hyperchrome_from_api(hyper_name, api_data)
 
         # Second pass: try to match partial patterns like "Purple 5" → "HyperPurple Level 5"
+        # Also handle "Hypershift Level 5" → "HyperShift Level 5"
         input_lower = item_input.lower().strip()
 
         # Extract color and level from input
@@ -718,7 +740,11 @@ class TradingTicketSystem:
         color_level_patterns = [
             r'^(blue|red|yellow|orange|pink|purple|diamond|green)\s+(level\s*)?(\d+)$',
             r'^(blue|red|yellow|orange|pink|purple|diamond|green)\s+l(\d+)$',
-            r'^(blue|red|yellow|orange|pink|purple|diamond|green)\s+(\d+)$'
+            r'^(blue|red|yellow|orange|pink|purple|diamond|green)\s+(\d+)$',
+            # Add patterns for hyperchromes with "hyper" prefix
+            r'^hyper(shift|blue|red|yellow|orange|pink|purple|diamond|green)\s+(level\s*)?(\d+)$',
+            r'^hyper(shift|blue|red|yellow|orange|pink|purple|diamond|green)\s+l(\d+)$',
+            r'^hyper(shift|blue|red|yellow|orange|pink|purple|diamond|green)\s+(\d+)$'
         ]
 
         for pattern in color_level_patterns:
@@ -941,6 +967,30 @@ class TradingTicketSystem:
                         monitoring_data['group_id'], items_list,
                         monitoring_data['total_robux'], monitoring_data['roblox_username'], self
                     )
+
+        elif current_step == 'waiting_period':
+            # Restore waiting period countdown
+            end_timestamp = state.get('end_timestamp')
+            total_robux = state.get('total_robux')
+            roblox_username = state.get('roblox_username')
+            user_id_roblox = state.get('user_id')
+            
+            if end_timestamp and total_robux and roblox_username:
+                import time
+                current_time = int(time.time())
+                
+                if current_time >= end_timestamp:
+                    # Time has expired, show transaction ready
+                    embed = await self.create_group_transaction_embed(
+                        user, items_list, total_robux, roblox_username, user_id_roblox
+                    )
+                    view = GroupTransactionView(self, user, items_list, total_robux, roblox_username)
+                    return embed, view
+                else:
+                    # Time still remaining, continue countdown
+                    embed = await self.create_waiting_period_embed(roblox_username, end_timestamp)
+                    view = WaitingPeriodView(self, user, items_list, total_robux, roblox_username, user_id_roblox, end_timestamp)
+                    return embed, view
 
         return None
 
@@ -1635,8 +1685,11 @@ class ItemModal(discord.ui.Modal):
 
         # Determine the correct name and type for the item entry
         if parsed_item.get('is_hyperchrome', False):
-            # For hyperchromes, use the clean name (without (HyperChrome))
+            # For hyperchromes, use the clean name (without (HyperChrome) and without year)
             clean_name = parsed_item['name']
+            # Remove year from display name (e.g., "HyperShift 2023" → "HyperShift")
+            import re
+            clean_name = re.sub(r'\s+\d{4}$', '', clean_name).strip()
             final_item_type = "HyperChrome"
         else:
             # For regular items, clean the name and extract type
@@ -2152,7 +2205,7 @@ class AccountConfirmationView(discord.ui.View):
             await interaction.followup.send(embed=error_embed, ephemeral=True)
 
 class WaitingPeriodView(discord.ui.View):
-    def __init__(self, ticket_system, user, items_list, total_robux, roblox_username, user_id):
+    def __init__(self, ticket_system, user, items_list, total_robux, roblox_username, user_id, end_timestamp=None):
         super().__init__(timeout=None)
         self.ticket_system = ticket_system
         self.user = user
@@ -2160,6 +2213,84 @@ class WaitingPeriodView(discord.ui.View):
         self.total_robux = total_robux
         self.roblox_username = roblox_username
         self.user_id = user_id
+        self.end_timestamp = end_timestamp
+        self.countdown_task = None
+        
+        # Start countdown if we have an end timestamp
+        if self.end_timestamp:
+            self.start_countdown_task()
+    
+    def start_countdown_task(self):
+        """Start the countdown task that updates every second"""
+        if self.countdown_task:
+            self.countdown_task.cancel()
+        self.countdown_task = asyncio.create_task(self._countdown_loop())
+    
+    async def _countdown_loop(self):
+        """Countdown loop that updates every second and saves state"""
+        import time
+        
+        try:
+            while True:
+                current_time = int(time.time())
+                time_remaining = self.end_timestamp - current_time
+                
+                # Save current state every second
+                if hasattr(self, '_last_channel'):
+                    self.ticket_system.save_ticket_state(self._last_channel.id, self.user.id, {
+                        'current_step': 'waiting_period',
+                        'items_list': self.items_list,
+                        'end_timestamp': self.end_timestamp,
+                        'total_robux': self.total_robux,
+                        'roblox_username': self.roblox_username,
+                        'user_id': self.user_id,
+                        'last_update': current_time
+                    })
+                
+                if time_remaining <= 0:
+                    # Time is up! Convert to transaction ready
+                    if hasattr(self, '_last_message') and hasattr(self, '_last_channel'):
+                        # Create transaction ready embed
+                        transaction_embed = await self.ticket_system.create_group_transaction_embed(
+                            self.user, self.items_list, self.total_robux, self.roblox_username, self.user_id
+                        )
+                        
+                        # Create new view for transaction
+                        view = GroupTransactionView(
+                            self.ticket_system, self.user, self.items_list,
+                            self.total_robux, self.roblox_username
+                        )
+                        
+                        # Update message and ping support
+                        await self._last_message.edit(embed=transaction_embed, view=view)
+                        content = f"{self.user.mention} <@&1300798850788757564>"
+                        await self._last_channel.send(content=content)
+                    break
+                
+                # Update embed with new countdown
+                if hasattr(self, '_last_message'):
+                    try:
+                        updated_embed = await self.ticket_system.create_waiting_period_embed(
+                            self.roblox_username, self.end_timestamp
+                        )
+                        await self._last_message.edit(embed=updated_embed, view=self)
+                    except discord.NotFound:
+                        # Message was deleted
+                        break
+                    except Exception as e:
+                        print(f"Error updating countdown: {e}")
+                
+                await asyncio.sleep(1)  # Update every second
+                
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            print(f"Error in countdown loop: {e}")
+    
+    def set_message_reference(self, message, channel):
+        """Set reference to the message and channel for updates"""
+        self._last_message = message
+        self._last_channel = channel
 
     @discord.ui.button(label='Confirm', style=discord.ButtonStyle.success, emoji='<:ConfirmLOGO:1410970202191171797>', custom_id='confirm_waiting_period_persistent')
     async def confirm_waiting(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -2282,7 +2413,18 @@ class GroupTransactionView(discord.ui.View):
 
     @discord.ui.button(label='Information', emoji='<:InformationLOGO:1410970300841066496>', style=discord.ButtonStyle.secondary, custom_id='sell_info_group_persistent')
     async def sell_information(self, interaction: discord.Interaction, button: discord.ui.Button):
-        info_embed = await self.ticket_system.create_sell_info_embed(self.items_list)
+        # Get ticket state to retrieve items_list
+        state = self.ticket_system.get_ticket_state(interaction.channel.id)
+        if not state:
+            await interaction.response.send_message("This ticket is no longer valid!", ephemeral=True)
+            return
+            
+        items_list = state.get('items_list', [])
+        if not items_list:
+            await interaction.response.send_message("No items found in this ticket!", ephemeral=True)
+            return
+            
+        info_embed = await self.ticket_system.create_sell_info_embed(items_list)
         await interaction.response.send_message(embed=info_embed, ephemeral=True)
 
 class RefuseReasonModal(discord.ui.Modal):
@@ -2401,7 +2543,7 @@ def setup_trading_ticket_system(bot):
     bot.add_view(AccountConfirmationView(ticket_system, 0, [], {}, "gamepass"))  # dummy values for persistence
     bot.add_view(GroupTransactionView(ticket_system, None, [], 0, ""))  # dummy values for persistence
     bot.add_view(AcceptTransactionView(ticket_system, None, None))  # dummy values for persistence
-    bot.add_view(WaitingPeriodView(ticket_system, None, [], 0, "", 0))  # dummy values for persistence
+    bot.add_view(WaitingPeriodView(ticket_system, None, [], 0, "", 0, None))  # dummy values for persistence
     bot.add_view(CancelConfirmationView(ticket_system, None))  # dummy values for persistence
 
     # Restore persistent views for existing tickets
