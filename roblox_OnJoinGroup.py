@@ -26,8 +26,15 @@ class GroupJoinMonitor:
                 await asyncio.sleep(10)  # Check every 10 seconds
 
                 if self.client.is_user_in_group(user_id, group_id):
-                    # User joined! Show waiting period with confirmation buttons
-                    end_timestamp = int(time.time()) + (14 * 24 * 60 * 60)  # 14 days from now
+                    # User joined! Store join timestamp and show waiting period
+                    join_timestamp = int(time.time())
+                    end_timestamp = join_timestamp + (14 * 24 * 60 * 60)  # 14 days from join
+                    
+                    # Save join timestamp to ticket state
+                    ticket_system.save_ticket_state(channel.id, user.id, {
+                        'group_join_timestamp': join_timestamp,
+                        'group_cooldown_end': end_timestamp
+                    })
 
                     waiting_embed = await ticket_system.create_waiting_period_embed(
                         roblox_username, end_timestamp
