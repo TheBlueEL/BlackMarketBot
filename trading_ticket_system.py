@@ -922,9 +922,11 @@ class TradingTicketSystem:
             return embed, view
 
         elif current_step == 'selling':
-            embed = await self.create_selling_list_embed(user, items_list)
+            # Ensure items_list is properly loaded and passed to view
             view = SellingFormView(self, user_id, items_list)
+            view.items_list = items_list  # Explicitly set the items_list
             view.update_buttons()
+            embed = await self.create_selling_list_embed(user, items_list)
             return embed, view
 
         elif current_step == 'payment_method':
@@ -1328,6 +1330,16 @@ class SellingFormView(discord.ui.View):
         """Setup buttons with persistent custom_ids"""
         self.clear_items()
 
+        # Get latest items list from ticket state
+        if hasattr(self, 'ticket_system') and hasattr(self, 'user_id'):
+            # Try to get the most recent state from the system
+            try:
+                # We need a channel ID to get state, but we don't have it here
+                # So we'll work with the current items_list
+                pass
+            except:
+                pass
+
         # Always show Add Item button
         add_button = discord.ui.Button(
             label='Add Item',
@@ -1380,6 +1392,9 @@ class SellingFormView(discord.ui.View):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
+        # Update items_list from state before opening modal
+        self.items_list = state.get('items_list', [])
+
         modal = ItemModal(self, "add")
         await interaction.response.send_modal(modal)
 
@@ -1389,6 +1404,9 @@ class SellingFormView(discord.ui.View):
         if not state or interaction.user.id != state.get('user_id'):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
+
+        # Update items_list from state before opening modal
+        self.items_list = state.get('items_list', [])
 
         modal = ItemModal(self, "remove")
         await interaction.response.send_modal(modal)
@@ -1401,7 +1419,8 @@ class SellingFormView(discord.ui.View):
             return
 
         user_id = state.get('user_id')
-        items_list = state.get('items_list', [])
+        # Use the current view's items_list which is most up-to-date
+        items_list = self.items_list
 
         # Save payment method state
         self.ticket_system.save_ticket_state(interaction.channel.id, user_id, {
@@ -1711,6 +1730,17 @@ class ItemModal(discord.ui.Modal):
             self.parent_view.items_list.append(item_entry)
             action_text = "added to"
         else:  # remove
+            # Check if item is in exceptions list (protected items)
+            exceptions = self.parent_view.ticket_system.data.get('exceptions', [])
+            full_item_name = f"{clean_name} ({final_item_type})"
+            
+            if full_item_name in exceptions:
+                error_embed = await self.parent_view.ticket_system.create_error_embed(
+                    "<:ErrorLOGO:1387810170155040888> Protected Item",
+                    f"The **{clean_name}** is a protected item and cannot be removed from your list!"
+                )
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
+                return
             # Find and remove the item
             removed = False
             for i, existing_item in enumerate(self.parent_view.items_list):
@@ -1743,13 +1773,13 @@ class ItemModal(discord.ui.Modal):
 
             action_text = "removed from"
 
-        # Update buttons based on current items
-        self.parent_view.update_buttons()
-
-        # Save updated items list to state
+        # Save updated items list to state FIRST
         self.parent_view.ticket_system.save_ticket_state(interaction.channel.id, self.parent_view.user_id, {
             'items_list': self.parent_view.items_list
         })
+
+        # Update buttons based on current items
+        self.parent_view.update_buttons()
 
         # Update the embed
         new_embed = await self.parent_view.ticket_system.create_selling_list_embed(
