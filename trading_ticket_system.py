@@ -911,7 +911,7 @@ class TradingTicketSystem:
         channel_key = str(channel_id)
         return self.data['ticket_states'].get(channel_key, None)
     
-    def get_ticket_creator(self, channel_id):
+    async def get_ticket_creator(self, channel_id):
         """Safely get the ticket creator user object"""
         state = self.get_ticket_state(channel_id)
         if not state:
@@ -921,14 +921,14 @@ class TradingTicketSystem:
         if not user_id:
             return None
             
-        # Try to get user from bot
+        # Try to get user from bot cache first
         user = self.bot.get_user(user_id)
         if user:
             return user
             
-        # If not found, try to fetch from Discord API
+        # If not found in cache, try to fetch from Discord API
         try:
-            user = asyncio.create_task(self.bot.fetch_user(user_id))
+            user = await self.bot.fetch_user(user_id)
             return user
         except Exception as e:
             print(f"Error fetching user {user_id}: {e}")
@@ -2458,7 +2458,7 @@ class GroupTransactionView(discord.ui.View):
             return
 
         # Use the new helper method to safely get ticket creator
-        target_user = self.ticket_system.get_ticket_creator(interaction.channel.id)
+        target_user = await self.ticket_system.get_ticket_creator(interaction.channel.id)
         
         if target_user is None:
             # Fallback: try to get user from state data
@@ -2502,7 +2502,7 @@ class GroupTransactionView(discord.ui.View):
             return
 
         # Use the new helper method to safely get ticket creator
-        target_user = self.ticket_system.get_ticket_creator(interaction.channel.id)
+        target_user = await self.ticket_system.get_ticket_creator(interaction.channel.id)
 
         modal = RefuseReasonModal(target_user, interaction.channel)
         await interaction.response.send_modal(modal)
@@ -2624,7 +2624,7 @@ class AcceptTransactionView(discord.ui.View):
             return
 
         # Use the new helper method to safely get ticket creator
-        target_user = self.ticket_system.get_ticket_creator(interaction.channel.id)
+        target_user = await self.ticket_system.get_ticket_creator(interaction.channel.id)
         target_channel = self.channel or interaction.channel
 
         if target_user is None:
@@ -2669,7 +2669,7 @@ class AcceptTransactionView(discord.ui.View):
             return
 
         # Use the new helper method to safely get ticket creator
-        target_user = self.ticket_system.get_ticket_creator(interaction.channel.id)
+        target_user = await self.ticket_system.get_ticket_creator(interaction.channel.id)
         target_channel = self.channel or interaction.channel
 
         modal = RefuseReasonModal(target_user, target_channel)
