@@ -1046,9 +1046,18 @@ class TradingTicketSystem:
         if not state:
             return None
 
+        # Use the user_id from state if provided user_id is different
+        saved_user_id = state.get('user_id')
+        if saved_user_id:
+            user_id = saved_user_id
+
         user = self.bot.get_user(user_id)
         if not user:
-            return None
+            try:
+                user = await self.bot.fetch_user(user_id)
+            except Exception as e:
+                print(f"Error fetching user {user_id}: {e}")
+                return None
 
         current_step = state.get('current_step', 'options')
         items_list = state.get('items_list', [])
