@@ -186,7 +186,7 @@ class TradingTicketSystem:
         """Create the payment method selection embed"""
         embed = discord.Embed(
             title="<:SellingLOGO:1410730163607437344> Selling Ticket",
-            color=0xff6b35
+            color=0x00D61C
         )
 
         # Calculate total value and robux
@@ -229,7 +229,7 @@ class TradingTicketSystem:
 
         description_lines.append(f"\nFor a total of {total_robux:,} <:RobuxLOGO:1410727587134701639> (Incl. Tax)")
         description_lines.append("\nChoose the method you want to receive your payment.")
-        description_lines.append("-# The client will always have to pay first.\n")
+        description_lines.append("-# <:InformationLOGO:1410970300841066496> The client will always have to pay first.\n")
 
         embed.description = "\n".join(description_lines)
         embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
@@ -240,7 +240,7 @@ class TradingTicketSystem:
     async def create_information_embed(self, user):
         """Create the information embed explaining payment methods"""
         embed = discord.Embed(
-            title="<:SellingLOGO:1410730163607437344> Selling Information",
+            title="<:InformationLOGO:1410970300841066496> Selling Information",
             color=0xFFFFFF
         )
 
@@ -305,7 +305,7 @@ class TradingTicketSystem:
         """Create embed for 2-week waiting period"""
         embed = discord.Embed(
             title="<:GroupLOGO:1411125220873474179> Welcome to our Group!",
-            description=f"Welcome @{roblox_username}, you have just joined our group!\nPlease wait 2 weeks to proceed with payment. Once the time has elapsed, you will be automatically pinged in this channel.",
+            description=f"Welcome @{roblox_username}, you have just joined our group! Nous allons maintenant procéder au transfert de véhicules. A noté que lorsque vous rejoignez notre groupe le paiement pourra se faire dans le délai de 2 semaines.",
             color=0x00ff88
         )
 
@@ -321,7 +321,6 @@ class TradingTicketSystem:
 """
 
         embed.add_field(name="F.A.Q", value=faq_text, inline=False)
-        embed.add_field(name="Time remaining:", value=f"<t:{end_timestamp}:R>", inline=False)
 
         embed.set_footer(text=f"{self.bot.user.name} - Group Donation", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
         if self.bot.user.avatar:
@@ -340,11 +339,33 @@ class TradingTicketSystem:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
 
-    async def create_group_transaction_embed(self, user, items_list, total_robux):
+    async def create_cancel_confirmation_embed(self):
+        """Create embed for cancel confirmation"""
+        embed = discord.Embed(
+            title="<:ErrorLOGO:1387810170155040888> Cancel Transaction",
+            description="Êtes-vous sûr de vouloir arrêter le selling? En annulant, ce ticket sera complètement supprimé et il n'y aura pas de retour en arrière.",
+            color=0xff0000
+        )
+        embed.set_footer(text=f"{self.bot.user.name} - Cancel Confirmation", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
+        if self.bot.user.avatar:
+            embed.set_thumbnail(url=self.bot.user.avatar.url)
+        return embed
+
+    async def create_group_transaction_embed(self, user, items_list, total_robux, roblox_username=None, user_id=None):
         """Create transaction embed for users already in group"""
+        description_parts = [
+            "Your request has been received, please wait for our teams to be available."
+        ]
+        
+        if roblox_username and user_id:
+            description_parts.append(f"\n**Roblox Username:** [**{roblox_username}**](https://www.roblox.com/users/{user_id}/profile)")
+        
+        description_parts.append(f"**Total Amount:** {total_robux:,} <:RobuxLOGO:1410727587134701639>")
+        description_parts.append("**Payment Link:** [**HERE**](https://www.roblox.com/communities/configure?id=34785441/revenue/payouts)")
+        
         embed = discord.Embed(
             title="<:SucessLOGO:1387810153864368218> Request Sucess",
-            description=f"Your request has been received, please wait for our teams to be available.\n\n**Total Amount:** {total_robux:,} <:RobuxLOGO:1410727587134701639>\n**Payment Link:** [**HERE**](https://www.roblox.com/communities/configure?id=34785441/revenue/payouts)",
+            description="\n".join(description_parts),
             color=0x37C700
         )
 
@@ -1847,7 +1868,8 @@ class AccountConfirmationView(discord.ui.View):
             if is_in_group:
                 # User already in group - direct transaction
                 transaction_embed = await self.ticket_system.create_group_transaction_embed(
-                    interaction.user, self.items_list, total_robux
+                    interaction.user, self.items_list, total_robux, 
+                    self.roblox_user_data['name'], user_id
                 )
 
                 view = GroupTransactionView(
@@ -1875,6 +1897,73 @@ class AccountConfirmationView(discord.ui.View):
                 f"An error occurred: {str(e)}"
             )
             await interaction.followup.send(embed=error_embed, ephemeral=True)
+
+class WaitingPeriodView(discord.ui.View):
+    def __init__(self, ticket_system, user, items_list, total_robux, roblox_username, user_id):
+        super().__init__(timeout=None)
+        self.ticket_system = ticket_system
+        self.user = user
+        self.items_list = items_list
+        self.total_robux = total_robux
+        self.roblox_username = roblox_username
+        self.user_id = user_id
+
+    @discord.ui.button(label='Confirm', style=discord.ButtonStyle.success, emoji='<:ConfirmLOGO:1410970202191171797>', custom_id='confirm_waiting_period')
+    async def confirm_waiting(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user.id:
+            await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
+            return
+
+        # Create the group transaction embed
+        transaction_embed = await self.ticket_system.create_group_transaction_embed(
+            self.user, self.items_list, self.total_robux, self.roblox_username, self.user_id
+        )
+
+        view = GroupTransactionView(
+            self.ticket_system, self.user, self.items_list,
+            self.total_robux, self.roblox_username
+        )
+
+        content = f"{self.user.mention} <@&1300798850788757564>"
+        await interaction.response.edit_message(embed=transaction_embed, view=view)
+        await interaction.followup.send(content=content)
+
+    @discord.ui.button(label='Cancel', style=discord.ButtonStyle.danger, emoji='<:CloseLOGO:1411114868471496717>', custom_id='cancel_waiting_period')
+    async def cancel_waiting(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user.id:
+            await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
+            return
+
+        # Show cancel confirmation embed
+        cancel_embed = await self.ticket_system.create_cancel_confirmation_embed()
+        view = CancelConfirmationView(self.ticket_system, self.user)
+        await interaction.response.edit_message(embed=cancel_embed, view=view)
+
+class CancelConfirmationView(discord.ui.View):
+    def __init__(self, ticket_system, user):
+        super().__init__(timeout=None)
+        self.ticket_system = ticket_system
+        self.user = user
+
+    @discord.ui.button(label='Confirm', style=discord.ButtonStyle.danger, emoji='<:ConfirmLOGO:1410970202191171797>', custom_id='confirm_cancel')
+    async def confirm_cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user.id:
+            await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
+            return
+
+        # Delete the channel
+        await interaction.response.defer()
+        await interaction.channel.delete(reason="Transaction cancelled by user")
+
+    @discord.ui.button(label='Cancel', style=discord.ButtonStyle.secondary, emoji='<:CloseLOGO:1411114868471496717>', custom_id='cancel_cancel')
+    async def cancel_cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user.id:
+            await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
+            return
+
+        # Simply delete the message without notification
+        await interaction.response.defer()
+        await interaction.delete_original_response()
 
 class GroupTransactionView(discord.ui.View):
     def __init__(self, ticket_system, user, items_list, total_robux, roblox_username):
