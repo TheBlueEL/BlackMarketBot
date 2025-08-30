@@ -696,11 +696,11 @@ class TradingTicketSystem:
             embed.set_thumbnail(url=self.bot.user.avatar.url)
         return embed
 
-    async def create_purchase_accepted_embed(self, user, channel_id):
-        """Create embed when purchase is accepted"""
+    async def create_selling_accepted_embed(self, user, channel_id):
+        """Create embed when selling is accepted"""
         embed = discord.Embed(
-            title="Purchase Accepted",
-            description="Our team has accepted your purchase. We will now proceed with the transaction.",
+            title="Selling Accepted",
+            description="Our team has accepted your selling request. We will now proceed with the transaction.",
             color=0x00ff00
         )
         embed.set_footer(text=f"{self.bot.user.name} - Selling Ticket", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
@@ -923,8 +923,7 @@ class TradingTicketSystem:
 
         elif current_step == 'selling':
             embed = await self.create_selling_list_embed(user, items_list)
-            view = SellingFormView(self, user_id)
-            view.items_list = items_list
+            view = SellingFormView(self, user_id, items_list)
             view.update_buttons()
             return embed, view
 
@@ -1286,7 +1285,7 @@ class TicketOptionsView(discord.ui.View):
         selling_embed = await self.ticket_system.create_selling_embed(interaction.user)
 
         # Create selling form view
-        selling_view = SellingFormView(self.ticket_system, user_id)
+        selling_view = SellingFormView(self.ticket_system, user_id, [])
 
         # Update the message with selling embed and form buttons
         await interaction.response.edit_message(embed=selling_embed, view=selling_view)
@@ -1318,11 +1317,11 @@ class TicketOptionsView(discord.ui.View):
         await interaction.response.send_message("Buying option will be implemented soon! Please choose Selling for now.", ephemeral=True)
 
 class SellingFormView(discord.ui.View):
-    def __init__(self, ticket_system, user_id):
+    def __init__(self, ticket_system, user_id, items_list=None):
         super().__init__(timeout=None)
         self.ticket_system = ticket_system
         self.user_id = user_id
-        self.items_list = []
+        self.items_list = items_list or []
         self.setup_buttons()
 
     def setup_buttons(self):
@@ -1882,8 +1881,7 @@ class PaymentMethodView(discord.ui.View):
 
         # Go back to selling form
         selling_embed = await self.ticket_system.create_selling_list_embed(interaction.user, items_list)
-        view = SellingFormView(self.ticket_system, user_id)
-        view.items_list = items_list  # Restore items list
+        view = SellingFormView(self.ticket_system, user_id, items_list)
         view.update_buttons()
         await interaction.response.edit_message(embed=selling_embed, view=view)
 
@@ -2386,9 +2384,9 @@ class GroupTransactionView(discord.ui.View):
             overwrites[self.user].send_messages = True
             await interaction.channel.edit(overwrites=overwrites)
 
-        # Send acceptance embed
-        accept_embed = await self.ticket_system.create_purchase_accepted_embed(self.user, interaction.channel.id)
-        await interaction.response.send_message(embed=accept_embed)
+        # Send acceptance embed with user ping
+        accept_embed = await self.ticket_system.create_selling_accepted_embed(self.user, interaction.channel.id)
+        await interaction.response.send_message(content=self.user.mention, embed=accept_embed)
 
         # Disable the buttons
         self.clear_items()
@@ -2490,9 +2488,9 @@ class AcceptTransactionView(discord.ui.View):
             overwrites[self.user].send_messages = True
             await self.channel.edit(overwrites=overwrites)
 
-        # Send acceptance embed
-        accept_embed = await self.ticket_system.create_purchase_accepted_embed(self.user, self.channel.id)
-        await interaction.response.send_message(embed=accept_embed)
+        # Send acceptance embed with user ping
+        accept_embed = await self.ticket_system.create_selling_accepted_embed(self.user, self.channel.id)
+        await interaction.response.send_message(content=self.user.mention, embed=accept_embed)
 
         # Disable the buttons
         self.clear_items()
@@ -2537,7 +2535,7 @@ def setup_trading_ticket_system(bot):
     # Add persistent views on bot startup
     bot.add_view(TicketPanelView(ticket_system))
     bot.add_view(TicketOptionsView(ticket_system, 0))  # dummy user_id for persistence
-    bot.add_view(SellingFormView(ticket_system, 0))  # dummy user_id for persistence
+    bot.add_view(SellingFormView(ticket_system, 0, []))  # dummy values for persistence
     bot.add_view(PaymentMethodView(ticket_system, 0, []))  # dummy values for persistence
     bot.add_view(InformationView(ticket_system, 0, []))  # dummy values for persistence
     bot.add_view(AccountConfirmationView(ticket_system, 0, [], {}, "gamepass"))  # dummy values for persistence
