@@ -1715,7 +1715,7 @@ class RefuseReasonModal(discord.ui.Modal):
         self.add_item(self.reason)
 
     async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
 
         # Get user from ticket state if self.user is None (persistent view issue)
         target_user = self.user
@@ -1732,22 +1732,39 @@ class RefuseReasonModal(discord.ui.Modal):
                         break
 
                 if ticket_system:
-                    target_user = ticket_system.get_ticket_creator(interaction.channel.id)
+                    target_user = await ticket_system.get_ticket_creator(interaction.channel.id)
             except Exception as e:
                 print(f"Error getting user from state: {e}")
 
-        # Create refusal embed for DM
+        # Create refusal embed for DM with staff info
         refuse_embed = discord.Embed(
             title="<:ErrorLOGO:1387810170155040888> Request Refused",
             description=f"Your selling request has been refused by our staff for these reasons:\n{self.reason.value}",
             color=0xff0000
         )
 
+        # Set bot avatar as thumbnail
+        if interaction.client.user.avatar:
+            refuse_embed.set_thumbnail(url=interaction.client.user.avatar.url)
+
+        # Set staff member avatar and name in footer
+        refuse_embed.set_footer(
+            text=f"Refused by {interaction.user.display_name}",
+            icon_url=interaction.user.avatar.url if interaction.user.avatar else None
+        )
+
+        # Create success embed for staff member (ephemeral)
+        success_embed = discord.Embed(
+            title="<:SucessLOGO:1387810153864368218> Ticket Refused",
+            description="The refusal reason has been sent via DMs, this ticket will be deleted in a few seconds.",
+            color=0x00ff00
+        )
+
         try:
             # Send DM to user if we have a valid user
             if target_user:
                 await target_user.send(embed=refuse_embed)
-                await interaction.followup.send(f"Refusal reason sent to {target_user.mention}. Channel will be deleted in 5 seconds.", ephemeral=True)
+                await interaction.followup.send(embed=success_embed, ephemeral=True)
             else:
                 # Get username from state for better error message
                 ticket_system = None
@@ -1756,19 +1773,33 @@ class RefuseReasonModal(discord.ui.Modal):
                         ticket_system = view.ticket_system
                         break
 
+                error_embed = discord.Embed(
+                    title="<:ErrorLOGO:1387810170155040888> Error",
+                    description="Could not find user to send DM. Transaction was refused. Channel will be deleted.",
+                    color=0xff0000
+                )
+
                 if ticket_system:
                     state = ticket_system.get_ticket_state(interaction.channel.id)
                     creator_username = state.get('creator_username') if state else None
                     if creator_username:
-                        await interaction.followup.send(f"Could not find user to send DM (Username: {creator_username}). Transaction was refused. Channel will be deleted.", ephemeral=True)
-                    else:
-                        await interaction.followup.send("Could not find user to send DM. Transaction was refused. Channel will be deleted.", ephemeral=True)
-                else:
-                    await interaction.followup.send("Could not find user to send DM. Transaction was refused. Channel will be deleted.", ephemeral=True)
+                        error_embed.description = f"Could not find user to send DM (Username: {creator_username}). Transaction was refused. Channel will be deleted."
+
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
         except discord.Forbidden:
-            await interaction.followup.send("Could not send DM to user, but transaction was refused. Channel will be deleted.", ephemeral=True)
+            error_embed = discord.Embed(
+                title="<:ErrorLOGO:1387810170155040888> DM Failed",
+                description="Could not send DM to user, but transaction was refused. Channel will be deleted.",
+                color=0xff0000
+            )
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
         except Exception as e:
-            await interaction.followup.send(f"Error sending DM: {str(e)}. Transaction was refused. Channel will be deleted.", ephemeral=True)
+            error_embed = discord.Embed(
+                title="<:ErrorLOGO:1387810170155040888> Error",
+                description=f"Error sending DM: {str(e)}. Transaction was refused. Channel will be deleted.",
+                color=0xff0000
+            )
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
 
         # Delete the channel after a short delay
         await asyncio.sleep(5)
