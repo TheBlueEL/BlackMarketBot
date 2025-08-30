@@ -8,8 +8,8 @@
     "890774895460495400": 1410796693296910367,
     "1383581749006827623": 1410798551759454258,
     "459039275116265492": 1411016705291059261,
-    "291595735118512129": 1411048374781739019,
-    "723144097015136296": 1411352582038749328
+    "723144097015136296": 1411352582038749328,
+    "291595735118512129": 1411356658206113802
   },
   "obtainable": [
     "Concept"
@@ -20,5 +20,35 @@
     "Brulee (Vehicle)",
     "Roadster (Vehicle)"
   ],
-  "ticket_states": {}
+  "ticket_states": {
+    "1411356658206113802": {
+      "user_id": 291595735118512129,
+      "channel_type": "selling",
+      "current_step": "account_confirmation",
+      "items_list": [
+        {
+          "name": "HyperRed Level 5",
+          "quantity": 1,
+          "status": "Clean",
+          "value": 46000000,
+          "type": "HyperChrome"
+        },
+        {
+          "name": "HyperRed Level 5",
+          "quantity": 1,
+          "status": "Clean",
+          "value": 46000000,
+          "type": "HyperChrome"
+        }
+      ],
+      "payment_method": "group",
+      "roblox_user_data": {
+        "id": 712290956,
+        "name": "gotlolfork1",
+        "displayName": "Fork",
+        "avatar_url": "https://tr.rbxcdn.com/30DAY-AvatarHeadshot-6DDC57201AE022CDA98A889F7AA6FF78-Png/420/420/AvatarHeadshot/Png/noFilter"
+      },
+      "monitoring_data": null
+    }
+  }
 }
