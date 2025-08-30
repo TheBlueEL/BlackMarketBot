@@ -2474,6 +2474,29 @@ class RefuseReasonModal(discord.ui.Modal):
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
+        # Get user from ticket state if self.user is None (persistent view issue)
+        target_user = self.user
+        if target_user is None:
+            # Try to get user from ticket state
+            state = None
+            # Find ticket system instance from any view in the channel
+            try:
+                # Get the ticket system from the bot (assuming it's stored there)
+                ticket_system = None
+                for view in interaction.client._connection._view_store._views.values():
+                    if hasattr(view, 'ticket_system'):
+                        ticket_system = view.ticket_system
+                        break
+                
+                if ticket_system:
+                    state = ticket_system.get_ticket_state(interaction.channel.id)
+                    if state:
+                        user_id = state.get('user_id')
+                        if user_id:
+                            target_user = interaction.client.get_user(user_id)
+            except Exception as e:
+                print(f"Error getting user from state: {e}")
+
         # Create refusal embed for DM
         refuse_embed = discord.Embed(
             title="<:ErrorLOGO:1387810170155040888> Request Refused",
@@ -2482,14 +2505,22 @@ class RefuseReasonModal(discord.ui.Modal):
         )
 
         try:
-            # Send DM to user
-            await self.user.send(embed=refuse_embed)
+            # Send DM to user if we have a valid user
+            if target_user:
+                await target_user.send(embed=refuse_embed)
+            else:
+                await interaction.followup.send("Could not find user to send DM. Transaction was refused.", ephemeral=True)
         except discord.Forbidden:
-            await interaction.followup.send("Could not send DM to user, But transaction was refused.", ephemeral=True)
+            await interaction.followup.send("Could not send DM to user, but transaction was refused.", ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(f"Error sending DM: {str(e)}. Transaction was refused.", ephemeral=True)
 
         # Delete the channel after a short delay
         await asyncio.sleep(5)
-        await self.channel.delete(reason="Transaction Refused by Staff")
+        try:
+            await self.channel.delete(reason="Transaction Refused by Staff")
+        except Exception as e:
+            print(f"Error deleting channel: {e}")
 
 class AcceptTransactionView(discord.ui.View):
     def __init__(self, ticket_system, channel, user):
