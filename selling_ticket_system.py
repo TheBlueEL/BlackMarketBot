@@ -96,7 +96,12 @@ class SellingFormView(discord.ui.View):
     async def handle_add_item(self, interaction: discord.Interaction):
         # Get user_id from ticket state since we can't store it in custom_id
         state = self.ticket_system.get_ticket_state(interaction.channel.id)
-        if not state or interaction.user.id != state.get('user_id'):
+        if not state:
+            await interaction.response.send_message("This ticket is no longer valid!", ephemeral=True)
+            return
+        
+        # Check if user is the ticket creator
+        if interaction.user.id != state.get('user_id'):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
@@ -109,7 +114,12 @@ class SellingFormView(discord.ui.View):
     async def handle_remove_item(self, interaction: discord.Interaction):
         # Get user_id from ticket state since we can't store it in custom_id
         state = self.ticket_system.get_ticket_state(interaction.channel.id)
-        if not state or interaction.user.id != state.get('user_id'):
+        if not state:
+            await interaction.response.send_message("This ticket is no longer valid!", ephemeral=True)
+            return
+        
+        # Check if user is the ticket creator
+        if interaction.user.id != state.get('user_id'):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
@@ -122,7 +132,12 @@ class SellingFormView(discord.ui.View):
     async def handle_next_to_payment(self, interaction: discord.Interaction):
         # Get user_id from ticket state since we can't store it in custom_id
         state = self.ticket_system.get_ticket_state(interaction.channel.id)
-        if not state or interaction.user.id != state.get('user_id'):
+        if not state:
+            await interaction.response.send_message("This ticket is no longer valid!", ephemeral=True)
+            return
+        
+        # Check if user is the ticket creator
+        if interaction.user.id != state.get('user_id'):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
@@ -144,7 +159,12 @@ class SellingFormView(discord.ui.View):
     async def handle_back_to_options(self, interaction: discord.Interaction):
         # Get user_id from ticket state since we can't store it in custom_id
         state = self.ticket_system.get_ticket_state(interaction.channel.id)
-        if not state or interaction.user.id != state.get('user_id'):
+        if not state:
+            await interaction.response.send_message("This ticket is no longer valid!", ephemeral=True)
+            return
+        
+        # Check if user is the ticket creator
+        if interaction.user.id != state.get('user_id'):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
