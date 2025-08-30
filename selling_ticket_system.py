@@ -239,108 +239,44 @@ class ItemModal(discord.ui.Modal):
             await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
 
-        # Parse item name using item_request.json like /add_stock
-        parsed_item = self.parent_view.ticket_system.parse_item_with_hyperchrome(self.item_name.value.strip())
-
-        from stockage_system import StockageSystem
-        stockage_system = StockageSystem()
-
-        # Find the item with specific type preference
-        item_type = parsed_item.get('type', 'None')
-        best_match, duplicates = stockage_system.find_best_match(parsed_item['name'], item_type)
+        # Use the neutral item matching system from ticket_system
+        best_match, error_message = self.parent_view.ticket_system.find_best_item_match(self.item_name.value.strip())
 
         if not best_match:
             error_embed = await self.parent_view.ticket_system.create_error_embed(
                 "<:ErrorLOGO:1387810170155040888> Item Not Found",
-                f"The **{self.item_name.value}** not found in our database."
+                error_message
             )
             await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
-
-        # Handle duplicates with priority order
-        if len(duplicates) > 1:
-            # Use priority order from item_request.json
-            try:
-                with open('item_request.json', 'r', encoding='utf-8') as f:
-                    item_request_data = json.load(f)
-                priority_order = item_request_data.get('priority_order', {
-                    "HyperChrome": 0, "Vehicle": 1, "Rim": 2, "Spoiler": 3, "Body Color": 4, "Texture": 5,
-                    "Tire Sticker": 6, "Tire Style": 7, "Drift": 8, "Furniture": 9, "Horn": 10, "Weapon Skin": 11
-                })
-            except:
-                priority_order = {
-                    "HyperChrome": 0, "Vehicle": 1, "Rim": 2, "Spoiler": 3, "Body Color": 4, "Texture": 5,
-                    "Tire Sticker": 6, "Tire Style": 7, "Drift": 8, "Furniture": 9, "Horn": 10, "Weapon Skin": 11
-                }
-
-            # Look for exact name match first
-            exact_matches = []
-            for item_name_dup, item_data_dup in duplicates:
-                clean_name = item_name_dup.split('(')[0].strip().lower()
-                input_name = self.item_name.value.strip().lower()
-                if clean_name == input_name:
-                    exact_matches.append((item_name_dup, item_data_dup))
-
-            def get_priority_score(item_tuple):
-                item_name_dup, item_data_dup = item_tuple
-                # Extract type from item name
-                if "(HyperChrome)" in item_name_dup or "hyperchrome" in item_name_dup.lower():
-                    item_type_detected = "HyperChrome"
-                else:
-                    import re
-                    match = re.search(r'\(([^)]+)\)$', item_name_dup)
-                    if match:
-                        item_type_detected = match.group(1)
-                    else:
-                        item_type_detected = "Unknown"
-
-                # Return priority score (lower = higher priority)
-                return priority_order.get(item_type_detected, 999)
-
-            if len(exact_matches) == 1:
-                best_match = exact_matches[0]
-            elif len(exact_matches) > 1:
-                # Multiple exact matches, use priority order
-                sorted_matches = sorted(exact_matches, key=get_priority_score)
-                best_match = sorted_matches[0]
-            else:
-                # No exact matches, use priority order on all duplicates
-                sorted_duplicates = sorted(duplicates, key=get_priority_score)
-                best_match = sorted_duplicates[0]
 
         item_name, item_data = best_match[0], best_match[1]
+        parsed_item = self.parent_view.ticket_system.parse_item_with_hyperchrome(self.item_name.value.strip())
 
-        # Check if item is obtainable before value check
-        clean_item_name = item_name.split('(')[0].strip()
+        # Determine clean item name
+        if parsed_item.get('is_hyperchrome', False):
+            clean_item_name = parsed_item['name']
+        else:
+            clean_item_name = item_name.split('(')[0].strip()
 
-        # Vérifier la valeur minimale (2.5M) et si l'item n'est pas obtainable
-        cash_value_str = item_data.get('Cash Value', '0')
-        try:
-            # Convertir la valeur en nombre (retirer tous les types d'espaces et convertir)
-            if isinstance(cash_value_str, str):
-                import re
-                clean_cash_value_str = re.sub(r'[\s,\u00A0\u2000-\u200B\u202F\u205F\u3000]+', '', cash_value_str)
-                if clean_cash_value_str.lower() in ['n/a', 'unknown', '']:
-                    cash_value = 0
-                else:
-                    cash_value = int(clean_cash_value_str)
-            else:
-                cash_value = cash_value_str
-        except (ValueError, TypeError):
-            cash_value = 0
+        # Validate item requirements
+        is_valid, validation_error = self.parent_view.ticket_system.validate_item_requirements(
+            item_name, item_data, clean_item_name
+        )
 
-        # Vérifier si la valeur est >= 2.5M
-        if cash_value < 2500000:
+        if not is_valid:
             error_embed = await self.parent_view.ticket_system.create_error_embed(
                 "<:ErrorLOGO:1387810170155040888> Item Rejected",
-                f"The **{clean_item_name}** not has a value below 2.5M and can't be selected!"
+                validation_error
             )
             await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
 
-        # For hyperchromes, we need to get the correct API data using the detected name
+        # Handle hyperchrome data setup
         if parsed_item.get('is_hyperchrome', False):
             # Get the actual API data for the detected hyperchrome
+            from stockage_system import StockageSystem
+            stockage_system = StockageSystem()
             api_name = parsed_item.get('api_name')
             if api_name and api_name in stockage_system.api_data:
                 item_data = stockage_system.api_data[api_name]
@@ -350,22 +286,9 @@ class ItemModal(discord.ui.Modal):
             clean_item_name = item_name.split('(')[0].strip()
 
             # Get item type from the full name
+            import re
             type_match = re.search(r'\(([^)]*)\)', item_name)
             final_item_type = type_match.group(1) if type_match else "Unknown"
-
-        # Load obtainable items from data file
-        try:
-            obtainable_items = self.parent_view.ticket_system.data.get('obtainable', [])
-        except:
-            obtainable_items = []
-
-        if clean_item_name in obtainable_items:
-            error_embed = await self.parent_view.ticket_system.create_error_embed(
-                "Item Information",
-                "This item cannot be added because it is worth less than 2.5M or it is obtainable."
-            )
-            await interaction.followup.send(embed=error_embed, ephemeral=True)
-            return
 
         # Get value based on status (case insensitive comparison)
         if status.lower() == "clean":
