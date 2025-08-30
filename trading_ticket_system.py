@@ -1040,6 +1040,26 @@ class TradingTicketSystem:
             del self.data['ticket_states'][channel_key]
             self.save_data()
 
+    async def disable_ticket_settings_buttons(self, channel):
+        """Disable ticket settings buttons when staff intervention is required"""
+        try:
+            # Find the settings embed message in the channel
+            async for message in channel.history(limit=20):
+                if (message.author == self.bot.user and 
+                    message.embeds and 
+                    "Ticket Setting" in message.embeds[0].title):
+                    
+                    # Create disabled view
+                    from selling_ticket_system import TicketSettingsView
+                    disabled_view = TicketSettingsView(self, 0)  # dummy user_id
+                    disabled_view.disable_buttons()
+                    
+                    # Update the message with disabled buttons
+                    await message.edit(view=disabled_view)
+                    break
+        except Exception as e:
+            print(f"Error disabling ticket settings buttons: {e}")
+
     async def restore_ticket_view(self, channel, user_id):
         """Restore the appropriate view based on saved state"""
         state = self.get_ticket_state(channel.id)
@@ -1293,6 +1313,9 @@ class TradingTicketSystem:
                                 total_millions = total_value / 1_000_000
                                 robux_rate = self.calculate_robux_rate(total_millions)
                                 total_robux_pretax = int(total_millions * robux_rate)
+
+                                # Disable ticket settings buttons
+                                await self.disable_ticket_settings_buttons(channel)
 
                                 # Send transaction pending embed (ping outside)
                                 pending_embed = await self.create_transaction_pending_embed(
@@ -1907,13 +1930,15 @@ def setup_trading_ticket_system(bot):
     # Import selling system views
     from selling_ticket_system import (
         SellingFormView, PaymentMethodView, InformationView, 
-        AccountConfirmationView
+        AccountConfirmationView, TicketSettingsView, DeleteConfirmationView
     )
     
     bot.add_view(SellingFormView(ticket_system, 0, []))  # dummy values for persistence
     bot.add_view(PaymentMethodView(ticket_system, 0, []))  # dummy values for persistence
     bot.add_view(InformationView(ticket_system, 0, []))  # dummy values for persistence
     bot.add_view(AccountConfirmationView(ticket_system, 0, [], {}, "gamepass"))  # dummy values for persistence
+    bot.add_view(TicketSettingsView(ticket_system, 0))  # dummy values for persistence
+    bot.add_view(DeleteConfirmationView(ticket_system, None))  # dummy values for persistence
     bot.add_view(GroupTransactionView(ticket_system, None, [], 0, ""))  # dummy values for persistence
     bot.add_view(AcceptTransactionView(ticket_system, None, None))  # dummy values for persistence
     bot.add_view(WaitingPeriodView(ticket_system, None, [], 0, "", 0, None))  # dummy values for persistence
