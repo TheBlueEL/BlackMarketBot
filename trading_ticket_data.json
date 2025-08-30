@@ -20,17 +20,5 @@
     "Brulee (Vehicle)",
     "Roadster (Vehicle)"
   ],
-  "ticket_states": {
-    "1411384625045049445": {
-      "user_id": 723144097015136296,
-      "channel_type": "selling",
-      "current_step": "selling",
-      "items_list": [],
-      "payment_method": null,
-      "roblox_user_data": null,
-      "monitoring_data": null,
-      "creator_username": "theblueel",
-      "creator_display_name": "TheBlueEL"
-    }
-  }
+  "ticket_states": {}
 }
