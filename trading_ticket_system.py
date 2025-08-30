@@ -1394,21 +1394,19 @@ class ItemModal(discord.ui.Modal):
             await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
 
-        # Clean item name (remove type in parentheses for grouping)
-        import re
-        clean_name = re.sub(r'\s*\([^)]*\)$', '', item_name).strip()
-
-        # Get item type from the full name
-        type_match = re.search(r'\(([^)]*)\)', item_name)
-        item_type = type_match.group(1) if type_match else "Unknown"
-
-        # For hyperchromes, remove year from display name and clean up
-        if item_type == "HyperChrome" or "hyperchrome" in item_type.lower():
-            # Remove any year (2022, 2023, 2024, etc.) from the clean name
-            clean_name = re.sub(r'\b(202[2-9]|20[3-9][0-9])\b', '', clean_name).strip()
-            # Set the correct type
+        # For hyperchromes, use the detected name from the parse function
+        if parsed_item.get('is_hyperchrome', False):
+            # Use the exact name from the parsing result for hyperchromes
+            clean_name = parsed_item['name']
             final_item_type = "HyperChrome"
         else:
+            # Clean item name (remove type in parentheses for grouping)
+            import re
+            clean_name = re.sub(r'\s*\([^)]*\)$', '', item_name).strip()
+
+            # Get item type from the full name
+            type_match = re.search(r'\(([^)]*)\)', item_name)
+            item_type = type_match.group(1) if type_match else "Unknown"
             final_item_type = item_type
 
 
