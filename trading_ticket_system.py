@@ -2186,10 +2186,10 @@ class WaitingPeriodView(discord.ui.View):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
-        # Show cancel confirmation embed
+        # Show cancel confirmation embed as a NEW message
         cancel_embed = await self.ticket_system.create_cancel_confirmation_embed()
         view = CancelConfirmationView(self.ticket_system, self.user)
-        await interaction.response.edit_message(embed=cancel_embed, view=view)
+        await interaction.response.send_message(embed=cancel_embed, view=view)
 
 class CancelConfirmationView(discord.ui.View):
     def __init__(self, ticket_system, user):
