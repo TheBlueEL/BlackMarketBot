@@ -906,6 +906,11 @@ class TradingTicketSystem:
             embed = await self.create_payment_method_embed(user, items_list)
             view = PaymentMethodView(self, user_id, items_list)
             return embed, view
+
+        elif current_step == 'information':
+            embed = await self.create_information_embed(user)
+            view = InformationView(self, user_id, items_list)
+            return embed, view
             
         elif current_step == 'account_confirmation':
             roblox_user_data = state.get('roblox_user_data')
@@ -1208,17 +1213,21 @@ class TicketOptionsView(discord.ui.View):
         self.ticket_system = ticket_system
         self.user_id = user_id
 
-    @discord.ui.button(label='Selling', style=discord.ButtonStyle.primary, emoji='<:SellingLOGO:1410730163607437344>', custom_id='ticket_selling_option')
+    @discord.ui.button(label='Selling', style=discord.ButtonStyle.primary, emoji='<:SellingLOGO:1410730163607437344>', custom_id=f'ticket_selling_option')
     async def selling_option(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.user_id:
+        # Get user_id from ticket state since we can't store it in custom_id
+        state = self.ticket_system.get_ticket_state(interaction.channel.id)
+        if not state or interaction.user.id != state.get('user_id'):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
+
+        user_id = state.get('user_id')
 
         # Update channel name to selling type
         await self.ticket_system.update_channel_type(interaction.channel, interaction.user, 'selling')
 
         # Save selling state
-        self.ticket_system.save_ticket_state(interaction.channel.id, self.user_id, {
+        self.ticket_system.save_ticket_state(interaction.channel.id, user_id, {
             'current_step': 'selling',
             'items_list': []
         })
@@ -1227,7 +1236,7 @@ class TicketOptionsView(discord.ui.View):
         selling_embed = await self.ticket_system.create_selling_embed(interaction.user)
 
         # Create selling form view
-        selling_view = SellingFormView(self.ticket_system, self.user_id)
+        selling_view = SellingFormView(self.ticket_system, user_id)
 
         # Update the message with selling embed and form buttons
         await interaction.response.edit_message(embed=selling_embed, view=selling_view)
@@ -1238,17 +1247,21 @@ class TicketOptionsView(discord.ui.View):
             role_mentions = " ".join([role.mention for role in support_roles])
             await interaction.followup.send(f"🔔 {role_mentions} New selling ticket created by {interaction.user.mention}!")
 
-    @discord.ui.button(label='Buying', style=discord.ButtonStyle.secondary, emoji='🛒', custom_id='ticket_buying')
+    @discord.ui.button(label='Buying', style=discord.ButtonStyle.secondary, emoji='🛒', custom_id=f'ticket_buying')
     async def buying_option(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.user_id:
+        # Get user_id from ticket state since we can't store it in custom_id
+        state = self.ticket_system.get_ticket_state(interaction.channel.id)
+        if not state or interaction.user.id != state.get('user_id'):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
+
+        user_id = state.get('user_id')
 
         # Update channel name to buying type
         await self.ticket_system.update_channel_type(interaction.channel, interaction.user, 'buying')
 
         # Save buying state
-        self.ticket_system.save_ticket_state(interaction.channel.id, self.user_id, {
+        self.ticket_system.save_ticket_state(interaction.channel.id, user_id, {
             'current_step': 'buying'
         })
 
@@ -1260,10 +1273,10 @@ class SellingFormView(discord.ui.View):
         self.ticket_system = ticket_system
         self.user_id = user_id
         self.items_list = []
-        self.update_buttons()
+        self.setup_buttons()
 
-    def update_buttons(self):
-        """Update button visibility based on items list"""
+    def setup_buttons(self):
+        """Setup buttons with persistent custom_ids"""
         self.clear_items()
 
         # Always show Add Item button
@@ -1271,7 +1284,7 @@ class SellingFormView(discord.ui.View):
             label='Add Item',
             style=discord.ButtonStyle.success,
             emoji='<:CreateLOGO:1390385790726570130>',
-            custom_id='selling_add_item'
+            custom_id='selling_add_item_persistent'
         )
         add_button.callback = self.handle_add_item
         self.add_item(add_button)
@@ -1282,7 +1295,7 @@ class SellingFormView(discord.ui.View):
                 label='Remove Item',
                 style=discord.ButtonStyle.danger,
                 emoji='<:RemoveLOGO:1410726980114190386>',
-                custom_id='selling_remove_item'
+                custom_id='selling_remove_item_persistent'
             )
             remove_button.callback = self.handle_remove_item
             self.add_item(remove_button)
@@ -1292,7 +1305,7 @@ class SellingFormView(discord.ui.View):
                 label='Next',
                 style=discord.ButtonStyle.primary,
                 emoji='<:NextLOGO:1410972675261857892>',
-                custom_id='selling_next'
+                custom_id='selling_next_persistent'
             )
             next_button.callback = self.handle_next_to_payment
             self.add_item(next_button)
@@ -1302,13 +1315,19 @@ class SellingFormView(discord.ui.View):
             label='Back',
             style=discord.ButtonStyle.secondary,
             emoji='<:BackLOGO:1410726662328422410>',
-            custom_id='selling_back'
+            custom_id='selling_back_persistent'
         )
         back_button.callback = self.handle_back_to_options
         self.add_item(back_button)
 
+    def update_buttons(self):
+        """Update button visibility based on items list"""
+        self.setup_buttons()
+
     async def handle_add_item(self, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
+        # Get user_id from ticket state since we can't store it in custom_id
+        state = self.ticket_system.get_ticket_state(interaction.channel.id)
+        if not state or interaction.user.id != state.get('user_id'):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
@@ -1316,7 +1335,9 @@ class SellingFormView(discord.ui.View):
         await interaction.response.send_modal(modal)
 
     async def handle_remove_item(self, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
+        # Get user_id from ticket state since we can't store it in custom_id
+        state = self.ticket_system.get_ticket_state(interaction.channel.id)
+        if not state or interaction.user.id != state.get('user_id'):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
@@ -1324,36 +1345,45 @@ class SellingFormView(discord.ui.View):
         await interaction.response.send_modal(modal)
 
     async def handle_next_to_payment(self, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
+        # Get user_id from ticket state since we can't store it in custom_id
+        state = self.ticket_system.get_ticket_state(interaction.channel.id)
+        if not state or interaction.user.id != state.get('user_id'):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
+        user_id = state.get('user_id')
+        items_list = state.get('items_list', [])
+
         # Save payment method state
-        self.ticket_system.save_ticket_state(interaction.channel.id, self.user_id, {
+        self.ticket_system.save_ticket_state(interaction.channel.id, user_id, {
             'current_step': 'payment_method',
-            'items_list': self.items_list
+            'items_list': items_list
         })
 
         # Go to payment method selection
-        payment_embed = await self.ticket_system.create_payment_method_embed(interaction.user, self.items_list)
-        view = PaymentMethodView(self.ticket_system, self.user_id, self.items_list)
+        payment_embed = await self.ticket_system.create_payment_method_embed(interaction.user, items_list)
+        view = PaymentMethodView(self.ticket_system, user_id, items_list)
         await interaction.response.edit_message(embed=payment_embed, view=view)
 
     async def handle_back_to_options(self, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
+        # Get user_id from ticket state since we can't store it in custom_id
+        state = self.ticket_system.get_ticket_state(interaction.channel.id)
+        if not state or interaction.user.id != state.get('user_id'):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
+        user_id = state.get('user_id')
+
         # Keep current channel type, don't reset to default
         # Save options state without changing channel type
-        self.ticket_system.save_ticket_state(interaction.channel.id, self.user_id, {
+        self.ticket_system.save_ticket_state(interaction.channel.id, user_id, {
             'current_step': 'options',
             'items_list': []
         })
 
         # Go back to ticket options
         options_embed = await self.ticket_system.create_ticket_options_embed(interaction.user)
-        view = TicketOptionsView(self.ticket_system, self.user_id)
+        view = TicketOptionsView(self.ticket_system, user_id)
         await interaction.response.edit_message(embed=options_embed, view=view)
 
 class ItemModal(discord.ui.Modal):
@@ -1700,7 +1730,7 @@ class PaymentMethodView(discord.ui.View):
             label='GamePass Method',
             style=discord.ButtonStyle.success,
             emoji='<:GamePassLOGO:1410971222715531274>',
-            custom_id='payment_gamepass'
+            custom_id='payment_gamepass_persistent'
         )
         gamepass_button.callback = self.gamepass_method
         self.add_item(gamepass_button)
@@ -1710,7 +1740,7 @@ class PaymentMethodView(discord.ui.View):
             label='Group Donation Method',
             style=discord.ButtonStyle.primary,
             emoji='<:GroupLOGO:1411125220873474179>',
-            custom_id='payment_group'
+            custom_id='payment_group_persistent'
         )
         group_button.callback = self.group_method
         self.add_item(group_button)
@@ -1720,7 +1750,7 @@ class PaymentMethodView(discord.ui.View):
             label='Information',
             style=discord.ButtonStyle.secondary,
             emoji='<:InformationLOGO:1410970300841066496>',
-            custom_id='payment_info',
+            custom_id='payment_info_persistent',
             row=1
         )
         info_button.callback = self.information
@@ -1731,14 +1761,16 @@ class PaymentMethodView(discord.ui.View):
             label='Back',
             style=discord.ButtonStyle.secondary,
             emoji='<:BackLOGO:1410726662328422410>',
-            custom_id='payment_back',
+            custom_id='payment_back_persistent',
             disabled=self.disable_back
         )
         back_button.callback = self.back_to_selling
         self.add_item(back_button)
 
     async def gamepass_method(self, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
+        # Get user_id from ticket state since we can't store it in custom_id
+        state = self.ticket_system.get_ticket_state(interaction.channel.id)
+        if not state or interaction.user.id != state.get('user_id'):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
@@ -1746,7 +1778,9 @@ class PaymentMethodView(discord.ui.View):
         await interaction.response.send_modal(modal)
 
     async def group_method(self, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
+        # Get user_id from ticket state since we can't store it in custom_id
+        state = self.ticket_system.get_ticket_state(interaction.channel.id)
+        if not state or interaction.user.id != state.get('user_id'):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
@@ -1754,16 +1788,29 @@ class PaymentMethodView(discord.ui.View):
         await interaction.response.send_modal(modal)
 
     async def information(self, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
+        # Get user_id from ticket state since we can't store it in custom_id
+        state = self.ticket_system.get_ticket_state(interaction.channel.id)
+        if not state or interaction.user.id != state.get('user_id'):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
+        user_id = state.get('user_id')
+        items_list = state.get('items_list', [])
+
+        # Save information state
+        self.ticket_system.save_ticket_state(interaction.channel.id, user_id, {
+            'current_step': 'information',
+            'items_list': items_list
+        })
+
         info_embed = await self.ticket_system.create_information_embed(interaction.user)
-        view = InformationView(self.ticket_system, self.user_id, self.items_list)
+        view = InformationView(self.ticket_system, user_id, items_list)
         await interaction.response.edit_message(embed=info_embed, view=view)
 
     async def back_to_selling(self, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
+        # Get user_id from ticket state since we can't store it in custom_id
+        state = self.ticket_system.get_ticket_state(interaction.channel.id)
+        if not state or interaction.user.id != state.get('user_id'):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
@@ -1771,10 +1818,19 @@ class PaymentMethodView(discord.ui.View):
             await interaction.response.send_message("This button is currently disabled.", ephemeral=True)
             return
 
+        user_id = state.get('user_id')
+        items_list = state.get('items_list', [])
+
+        # Save selling state
+        self.ticket_system.save_ticket_state(interaction.channel.id, user_id, {
+            'current_step': 'selling',
+            'items_list': items_list
+        })
+
         # Go back to selling form
-        selling_embed = await self.ticket_system.create_selling_list_embed(interaction.user, self.items_list)
-        view = SellingFormView(self.ticket_system, self.user_id)
-        view.items_list = self.items_list  # Restore items list
+        selling_embed = await self.ticket_system.create_selling_list_embed(interaction.user, items_list)
+        view = SellingFormView(self.ticket_system, user_id)
+        view.items_list = items_list  # Restore items list
         view.update_buttons()
         await interaction.response.edit_message(embed=selling_embed, view=view)
 
@@ -1785,14 +1841,25 @@ class InformationView(discord.ui.View):
         self.user_id = user_id
         self.items_list = items_list
 
-    @discord.ui.button(label='Back', style=discord.ButtonStyle.secondary, emoji='<:BackLOGO:1410726662328422410>', custom_id='info_back')
+    @discord.ui.button(label='Back', style=discord.ButtonStyle.secondary, emoji='<:BackLOGO:1410726662328422410>', custom_id='info_back_persistent')
     async def back_to_payment(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.user_id:
+        # Get user_id from ticket state since we can't store it in custom_id
+        state = self.ticket_system.get_ticket_state(interaction.channel.id)
+        if not state or interaction.user.id != state.get('user_id'):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
-        payment_embed = await self.ticket_system.create_payment_method_embed(interaction.user, self.items_list)
-        view = PaymentMethodView(self.ticket_system, self.user_id, self.items_list, disable_back=False)
+        user_id = state.get('user_id')
+        items_list = state.get('items_list', [])
+
+        # Save payment method state
+        self.ticket_system.save_ticket_state(interaction.channel.id, user_id, {
+            'current_step': 'payment_method',
+            'items_list': items_list
+        })
+
+        payment_embed = await self.ticket_system.create_payment_method_embed(interaction.user, items_list)
+        view = PaymentMethodView(self.ticket_system, user_id, items_list, disable_back=False)
         await interaction.response.edit_message(embed=payment_embed, view=view)
 
 class UsernameModal(discord.ui.Modal):
@@ -2302,12 +2369,18 @@ def setup_trading_ticket_system(bot):
 
     # Add persistent views on bot startup
     bot.add_view(TicketPanelView(ticket_system))
+    bot.add_view(TicketOptionsView(ticket_system, 0))  # dummy user_id for persistence
+    bot.add_view(SellingFormView(ticket_system, 0))  # dummy user_id for persistence
+    bot.add_view(PaymentMethodView(ticket_system, 0, []))  # dummy values for persistence
+    bot.add_view(InformationView(ticket_system, 0, []))  # dummy values for persistence
 
     # Restore persistent views for existing tickets
     async def restore_persistent_views():
         await bot.wait_until_ready()
         try:
-            for channel_id_str, state in ticket_system.data.get('ticket_states', {}).items():
+            # Create a copy of the dictionary to avoid "dictionary changed size during iteration" error
+            ticket_states_copy = dict(ticket_system.data.get('ticket_states', {}))
+            for channel_id_str, state in ticket_states_copy.items():
                 try:
                     channel_id = int(channel_id_str)
                     channel = bot.get_channel(channel_id)
@@ -2319,11 +2392,20 @@ def setup_trading_ticket_system(bot):
                             # Find the last message in the channel and edit it
                             async for message in channel.history(limit=10):
                                 if message.author == bot.user and message.embeds:
-                                    await message.edit(embed=embed, view=view)
-                                    break
+                                    try:
+                                        await message.edit(embed=embed, view=view)
+                                        print(f"Restored view for channel {channel_id}")
+                                        break
+                                    except discord.NotFound:
+                                        # Message was deleted, skip
+                                        continue
+                                    except Exception as e:
+                                        print(f"Error editing message in channel {channel_id}: {e}")
+                                        continue
                     else:
                         # Channel doesn't exist anymore, clean up state
                         ticket_system.remove_ticket_state(channel_id)
+                        print(f"Cleaned up state for non-existent channel {channel_id}")
                 except Exception as e:
                     print(f"Error restoring view for channel {channel_id_str}: {e}")
         except Exception as e:
