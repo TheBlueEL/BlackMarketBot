@@ -17,8 +17,8 @@
   "ticket_states": {
     "1411159274112942199": {
       "user_id": 723144097015136296,
-      "channel_type": "default",
-      "current_step": "options",
+      "channel_type": "selling",
+      "current_step": "selling",
       "items_list": [],
       "payment_method": null,
       "roblox_user_data": null,
