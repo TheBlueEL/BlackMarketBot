@@ -21,11 +21,18 @@
       "current_step": "selling",
       "items_list": [
         {
-          "name": "Torpedo",
+          "name": "Hypershift",
           "quantity": 1,
           "status": "Clean",
-          "value": 48000000,
-          "type": "Vehicle"
+          "value": 340000000,
+          "type": "HyperChrome"
+        },
+        {
+          "name": "Hypershift",
+          "quantity": 1,
+          "status": "Dupe",
+          "value": 300000000,
+          "type": "HyperChrome"
         }
       ],
       "payment_method": null,
