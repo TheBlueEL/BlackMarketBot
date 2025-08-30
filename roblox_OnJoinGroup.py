@@ -26,17 +26,21 @@ class GroupJoinMonitor:
                 await asyncio.sleep(10)  # Check every 10 seconds
 
                 if self.client.is_user_in_group(user_id, group_id):
-                    # User joined! Show waiting period
+                    # User joined! Show waiting period with confirmation buttons
                     end_timestamp = int(time.time()) + (14 * 24 * 60 * 60)  # 14 days from now
 
                     waiting_embed = await ticket_system.create_waiting_period_embed(
                         roblox_username, end_timestamp
                     )
 
-                    await channel.send(embed=waiting_embed)
+                    # Import the view class
+                    from trading_ticket_system import WaitingPeriodView
+                    
+                    view = WaitingPeriodView(
+                        ticket_system, user, items_list, total_robux, roblox_username, user_id
+                    )
 
-                    # Start timer for 2 weeks and setup completion callback
-                    await self._setup_waiting_period(channel, user, items_list, total_robux, end_timestamp, ticket_system)
+                    await channel.send(embed=waiting_embed, view=view)
                     break
 
         except asyncio.CancelledError:
