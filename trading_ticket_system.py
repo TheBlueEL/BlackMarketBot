@@ -699,7 +699,7 @@ class TradingTicketSystem:
     async def create_selling_accepted_embed(self, user, channel_id):
         """Create embed when selling is accepted"""
         embed = discord.Embed(
-            title="Selling Accepted",
+            title="<:SucessLOGO:1387810153864368218> Selling Accepted",
             description="Our team has accepted your selling request. We will now proceed with the transaction.",
             color=0x00ff00
         )
