@@ -14,35 +14,5 @@
   "obtainable": [
     "Concept"
   ],
-  "ticket_states": {
-    "1411168135205224564": {
-      "user_id": 723144097015136296,
-      "channel_type": "selling",
-      "current_step": "group_monitoring",
-      "items_list": [
-        {
-          "name": "Torpedo",
-          "quantity": 1,
-          "status": "Clean",
-          "value": 48000000,
-          "type": "Vehicle"
-        }
-      ],
-      "payment_method": "group",
-      "roblox_user_data": {
-        "id": 1289440978,
-        "name": "ThisBlue80",
-        "displayName": "BlueEL",
-        "avatar_url": "https://tr.rbxcdn.com/30DAY-AvatarHeadshot-0E0549691AD486790A96ED4D3EDE80D3-Png/420/420/AvatarHeadshot/Png/noFilter"
-      },
-      "monitoring_data": {
-        "user_id": 1289440978,
-        "group_id": 34785441,
-        "total_robux": 3840,
-        "roblox_username": "ThisBlue80"
-      },
-      "group_join_timestamp": 1756519158,
-      "group_cooldown_end": 1757728758
-    }
-  }
+  "ticket_states": {}
 }
