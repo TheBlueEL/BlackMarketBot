@@ -9,6 +9,18 @@ class SellingTicketSystem:
     def __init__(self, bot, trading_system):
         self.bot = bot
         self.trading_system = trading_system
+    
+    async def create_ticket_settings_embed(self):
+        """Create the ticket settings embed"""
+        embed = discord.Embed(
+            title="<:SettingLOGO:1411389026069381190> Ticket Setting",
+            description="Vous pourrez utiliser ces boutons ci dessous tems que vous n'aurais pas valider la demande de Selling ou de Buying. Ne faite appel au staff que si il y'a un bug de la part de ce bot.",
+            color=0x0099ff
+        )
+        embed.set_footer(text=f"{self.bot.user.name} - Ticket Settings", icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None)
+        if self.bot.user.avatar:
+            embed.set_thumbnail(url=self.bot.user.avatar.url)
+        return embed
         
     async def handle_selling_option(self, interaction, user_id):
         """Handle the selling option from the main ticket system"""
@@ -29,6 +41,11 @@ class SellingTicketSystem:
 
         # Update the message with selling embed and form buttons
         await interaction.response.edit_message(embed=selling_embed, view=selling_view)
+
+        # Send ticket settings embed
+        settings_embed = await self.create_ticket_settings_embed()
+        settings_view = TicketSettingsView(self.trading_system, user_id)
+        await interaction.followup.send(embed=settings_embed, view=settings_view)
 
         # Notify support team
         support_roles = self.trading_system.get_support_roles(interaction.guild)
@@ -853,6 +870,9 @@ class AccountConfirmationView(discord.ui.View):
             await interaction.edit_original_response(view=disabled_view)
 
             if is_in_group:
+                # Disable ticket settings buttons
+                await self.ticket_system.disable_ticket_settings_buttons(interaction.channel)
+
                 # User already in group - direct transaction
                 transaction_embed = await self.ticket_system.create_group_transaction_embed(
                     interaction.user, self.items_list, total_robux,
@@ -897,6 +917,96 @@ class AccountConfirmationView(discord.ui.View):
                 f"An error occurred: {str(e)}"
             )
             await interaction.followup.send(embed=error_embed, ephemeral=True)
+
+class TicketSettingsView(discord.ui.View):
+    def __init__(self, ticket_system, user_id):
+        super().__init__(timeout=None)
+        self.ticket_system = ticket_system
+        self.user_id = user_id
+
+    @discord.ui.button(label='Delete Ticket', style=discord.ButtonStyle.danger, emoji='🗑️', custom_id='delete_ticket_persistent')
+    async def delete_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Get user_id from ticket state since we can't store it in custom_id
+        state = self.ticket_system.get_ticket_state(interaction.channel.id)
+        if not state or interaction.user.id != state.get('user_id'):
+            await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
+            return
+
+        # Create confirmation embed
+        confirm_embed = discord.Embed(
+            title="<:ErrorLOGO:1387810170155040888> Delete Ticket",
+            description="Are you sure you want to delete this ticket? This action cannot be undone.",
+            color=0xff0000
+        )
+        confirm_embed.set_footer(text=f"{self.ticket_system.bot.user.name} - Delete Confirmation", icon_url=self.ticket_system.bot.user.avatar.url if self.ticket_system.bot.user.avatar else None)
+        
+        # Create confirmation view
+        confirm_view = DeleteConfirmationView(self.ticket_system, interaction.user)
+        
+        await interaction.response.send_message(embed=confirm_embed, view=confirm_view, ephemeral=True)
+
+    @discord.ui.button(label='Contact Staff', style=discord.ButtonStyle.secondary, emoji='📞', custom_id='contact_staff_persistent')
+    async def contact_staff(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Get user_id from ticket state since we can't store it in custom_id
+        state = self.ticket_system.get_ticket_state(interaction.channel.id)
+        if not state or interaction.user.id != state.get('user_id'):
+            await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
+            return
+
+        # Ping staff roles
+        support_roles = self.ticket_system.get_support_roles(interaction.guild)
+        if support_roles:
+            role_mentions = " ".join([role.mention for role in support_roles])
+            
+            contact_embed = discord.Embed(
+                title="<:ContactLOGO:1411389026069381190> Staff Contacted",
+                description=f"Staff has been notified: {role_mentions}\n\nPlease explain your issue and wait for assistance.",
+                color=0x00ff88
+            )
+            
+            await interaction.response.send_message(embed=contact_embed)
+        else:
+            await interaction.response.send_message("No staff roles configured!", ephemeral=True)
+
+    def disable_buttons(self):
+        """Disable all buttons when staff intervention is required"""
+        for item in self.children:
+            if isinstance(item, discord.ui.Button):
+                item.disabled = True
+
+class DeleteConfirmationView(discord.ui.View):
+    def __init__(self, ticket_system, user):
+        super().__init__(timeout=None)
+        self.ticket_system = ticket_system
+        self.user = user
+
+    @discord.ui.button(label='Confirm Delete', style=discord.ButtonStyle.danger, emoji='<:ConfirmLOGO:1410970202191171797>', custom_id='confirm_delete_persistent')
+    async def confirm_delete(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user.id:
+            await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
+            return
+
+        # Delete the channel and cleanup state
+        channel_id = interaction.channel.id
+        await interaction.response.defer()
+
+        # Remove from active tickets and states
+        user_id = str(self.user.id)
+        if user_id in self.ticket_system.data['active_tickets']:
+            del self.ticket_system.data['active_tickets'][user_id]
+        self.ticket_system.remove_ticket_state(channel_id)
+
+        await interaction.channel.delete(reason="Ticket deleted by user")
+
+    @discord.ui.button(label='Cancel', style=discord.ButtonStyle.secondary, emoji='<:CloseLOGO:1411114868471496717>', custom_id='cancel_delete_persistent')
+    async def cancel_delete(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user.id:
+            await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
+            return
+
+        # Simply delete the message without notification
+        await interaction.response.defer()
+        await interaction.delete_original_response()
 
 # Importer les classes restantes depuis l'ancien fichier
 from trading_ticket_system import (
