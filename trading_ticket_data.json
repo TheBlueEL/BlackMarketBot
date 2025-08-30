@@ -14,23 +14,11 @@
   "obtainable": [
     "Concept"
   ],
-  "ticket_states": {
-    "1411352582038749328": {
-      "user_id": 723144097015136296,
-      "channel_type": "selling",
-      "current_step": "selling",
-      "items_list": [
-        {
-          "name": "Torpedo",
-          "quantity": 1,
-          "status": "Clean",
-          "value": 48000000,
-          "type": "Vehicle"
-        }
-      ],
-      "payment_method": null,
-      "roblox_user_data": null,
-      "monitoring_data": null
-    }
-  }
+  "exceptions": [
+    "Torpedo (Vehicle)",
+    "Cobra (Vehicle)",
+    "Brulee (Vehicle)",
+    "Roadster (Vehicle)"
+  ],
+  "ticket_states": {}
 }
