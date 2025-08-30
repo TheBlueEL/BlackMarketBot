@@ -1359,6 +1359,17 @@ class ItemModal(discord.ui.Modal):
             await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
 
+        # For hyperchromes, we need to get the correct API data using the detected name
+        if parsed_item.get('is_hyperchrome', False):
+            # Get the actual API data for the detected hyperchrome
+            api_name = parsed_item.get('api_name')
+            if api_name and api_name in stockage_system.api_data:
+                item_data = stockage_system.api_data[api_name]
+                item_name = api_name  # Use the full API name for internal processing
+            clean_item_name = parsed_item['name']  # But use the clean name for display
+        else:
+            clean_item_name = item_name.split('(')[0].strip()
+
         # Load obtainable items from data file
         try:
             obtainable_items = self.parent_view.ticket_system.data.get('obtainable', [])
@@ -1382,9 +1393,11 @@ class ItemModal(discord.ui.Modal):
         value_str = item_data.get(value_key, 'N/A')
 
         if value_str == 'N/A' or not value_str or value_str == "N/A":
+            # For hyperchromes, show the clean name in error message
+            display_name_for_error = clean_item_name if parsed_item.get('is_hyperchrome', False) else item_name
             error_embed = await self.parent_view.ticket_system.create_error_embed(
                 "Value Not Available",
-                f"No {status} value available for '{item_name}'!"
+                f"No {status} value available for '{display_name_for_error}'!"
             )
             await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
@@ -1419,21 +1432,19 @@ class ItemModal(discord.ui.Modal):
             await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
 
-        # For hyperchromes, use the detected name from the parse function
+        # Determine the correct name and type for the item entry
         if parsed_item.get('is_hyperchrome', False):
-            # Use the exact name from the parsing result for hyperchromes
+            # For hyperchromes, use the clean name (without (HyperChrome))
             clean_name = parsed_item['name']
             final_item_type = "HyperChrome"
         else:
-            # Clean item name (remove type in parentheses for grouping)
+            # For regular items, clean the name and extract type
             import re
             clean_name = re.sub(r'\s*\([^)]*\)$', '', item_name).strip()
-
+            
             # Get item type from the full name
             type_match = re.search(r'\(([^)]*)\)', item_name)
-            item_type = type_match.group(1) if type_match else "Unknown"
-            final_item_type = item_type
-
+            final_item_type = type_match.group(1) if type_match else "Unknown"
 
         item_entry = {
             'name': clean_name,
