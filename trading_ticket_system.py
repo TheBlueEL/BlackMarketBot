@@ -1473,8 +1473,8 @@ class ItemModal(discord.ui.Modal):
 
         if not best_match:
             error_embed = await self.parent_view.ticket_system.create_error_embed(
-                "Item Not Found",
-                f"Item '{self.item_name.value}' not found in database!"
+                "<:ErrorLOGO:1387810170155040888> Item Not Found",
+                f"The **{self.item_name.value}** not found in our database."
             )
             await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
@@ -1554,8 +1554,8 @@ class ItemModal(discord.ui.Modal):
         # Vérifier si la valeur est >= 2.5M
         if cash_value < 2500000:
             error_embed = await self.parent_view.ticket_system.create_error_embed(
-                "Item Not Found",
-                f"Item '{clean_item_name}' not found in database or has a value below 2.5M!"
+                "<:ErrorLOGO:1387810170155040888> Item Rejected",
+                f"The **{clean_item_name}** not has a value below 2.5M and can't be selected!"
             )
             await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
