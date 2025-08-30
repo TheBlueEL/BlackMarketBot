@@ -315,10 +315,10 @@ class TradingTicketSystem:
     async def create_waiting_period_embed(self, roblox_username, end_timestamp):
         """Create embed for 2-week waiting period with persistent countdown"""
         import time
-        
+
         current_time = int(time.time())
         time_remaining = end_timestamp - current_time
-        
+
         if time_remaining <= 0:
             # Time has already expired
             embed = discord.Embed(
@@ -332,9 +332,9 @@ class TradingTicketSystem:
             hours = (time_remaining % 86400) // 3600
             minutes = (time_remaining % 3600) // 60
             seconds = time_remaining % 60
-            
+
             time_text = f"{days} days, {hours} hours, {minutes} minutes, {seconds} seconds"
-            
+
             embed = discord.Embed(
                 title="<:GroupLOGO:1411125220873474179> Welcome to our Group!",
                 description=f"Welcome @{roblox_username}, you have just joined our group! We will now proceed with the transfer of vehicles.\n\n**Time remaining:** {time_text}\n\nPlease note that when you join our group, payment can be made within 2 weeks.",
@@ -436,17 +436,17 @@ class TradingTicketSystem:
             else:
                 full_item_text = f"• {quantity}x {item_name}"
 
-            # Limit to maximum 40 characters per line, breaking at 32 characters
-            if len(full_item_text) > 32:
+            # Limit to maximum 43 characters per line, breaking at 35 characters
+            if len(full_item_text) > 35:
                 # Find a good breaking point
-                break_point = 32
-                for i in range(32, min(40, len(full_item_text))):
+                break_point = 35
+                for i in range(35, min(43, len(full_item_text))):
                     if full_item_text[i] in [' ', '(', ')', '-']:
                         break_point = i
                         break
 
                 line1 = full_item_text[:break_point]
-                line2 = full_item_text[break_point:break_point+40].strip()
+                line2 = full_item_text[break_point:break_point+43].strip()
                 formatted_item = f"{line1}\n{line2}" if line2 else line1
             else:
                 formatted_item = full_item_text
@@ -521,17 +521,17 @@ class TradingTicketSystem:
             else:
                 full_item_text = f"• {quantity}x {item_name}"
 
-            # Limit to maximum 40 characters per line, breaking at 32 characters
-            if len(full_item_text) > 32:
+            # Limit to maximum 43 characters per line, breaking at 35 characters
+            if len(full_item_text) > 35:
                 # Find a good breaking point
-                break_point = 32
-                for i in range(32, min(40, len(full_item_text))):
+                break_point = 35
+                for i in range(35, min(43, len(full_item_text))):
                     if full_item_text[i] in [' ', '(', ')', '-']:
                         break_point = i
                         break
 
                 line1 = full_item_text[:break_point]
-                line2 = full_item_text[break_point:break_point+40].strip()
+                line2 = full_item_text[break_point:break_point+43].strip()
                 formatted_item = f"{line1}\n{line2}" if line2 else line1
             else:
                 formatted_item = full_item_text
@@ -618,17 +618,17 @@ class TradingTicketSystem:
             else:
                 full_item_text = f"• {quantity}x {item_name}"
 
-            # Limit to maximum 40 characters per line, breaking at 32 characters
-            if len(full_item_text) > 32:
+            # Limit to maximum 43 characters per line, breaking at 35 characters
+            if len(full_item_text) > 35:
                 # Find a good breaking point
-                break_point = 32
-                for i in range(32, min(40, len(full_item_text))):
+                break_point = 35
+                for i in range(35, min(43, len(full_item_text))):
                     if full_item_text[i] in [' ', '(', ')', '-']:
                         break_point = i
                         break
 
                 line1 = full_item_text[:break_point]
-                line2 = full_item_text[break_point:break_point+40].strip()
+                line2 = full_item_text[break_point:break_point+43].strip()
                 formatted_item = f"{line1}\n{line2}" if line2 else line1
             else:
                 formatted_item = full_item_text
@@ -891,7 +891,7 @@ class TradingTicketSystem:
 
         # Always ensure user_id is preserved
         state_data['user_id'] = user_id
-        
+
         # Save creator username and display name if not already saved
         if 'creator_username' not in self.data['ticket_states'][channel_key] or not self.data['ticket_states'][channel_key]['creator_username']:
             try:
@@ -910,22 +910,22 @@ class TradingTicketSystem:
         """Get ticket state"""
         channel_key = str(channel_id)
         return self.data['ticket_states'].get(channel_key, None)
-    
+
     async def get_ticket_creator(self, channel_id):
         """Safely get the ticket creator user object"""
         state = self.get_ticket_state(channel_id)
         if not state:
             return None
-            
+
         user_id = state.get('user_id')
         if not user_id:
             return None
-            
+
         # Try to get user from bot cache first
         user = self.bot.get_user(user_id)
         if user:
             return user
-            
+
         # If not found in cache, try to fetch from Discord API
         try:
             user = await self.bot.fetch_user(user_id)
@@ -1013,11 +1013,11 @@ class TradingTicketSystem:
             total_robux = state.get('total_robux')
             roblox_username = state.get('roblox_username')
             user_id_roblox = state.get('user_id')
-            
+
             if end_timestamp and total_robux and roblox_username:
                 import time
                 current_time = int(time.time())
-                
+
                 if current_time >= end_timestamp:
                     # Time has expired, show transaction ready
                     embed = await self.create_group_transaction_embed(
@@ -1304,7 +1304,7 @@ class TicketOptionsView(discord.ui.View):
         self.ticket_system = ticket_system
         self.user_id = user_id
 
-    @discord.ui.button(label='Selling', style=discord.ButtonStyle.primary, emoji='<:SellingLOGO:1410730163607437344>', custom_id=f'ticket_selling_option')
+    @discord.ui.button(label='Selling', style=discord.ButtonStyle.primary, emoji='<:SellingLOGO:1410730163607437344>', custom_id='ticket_selling_option')
     async def selling_option(self, interaction: discord.Interaction, button: discord.ui.Button):
         # Get user_id from ticket state since we can't store it in custom_id
         state = self.ticket_system.get_ticket_state(interaction.channel.id)
@@ -1338,7 +1338,7 @@ class TicketOptionsView(discord.ui.View):
             role_mentions = " ".join([role.mention for role in support_roles])
             await interaction.followup.send(f"🔔 {role_mentions} New selling ticket created by {interaction.user.mention}!")
 
-    @discord.ui.button(label='Buying', style=discord.ButtonStyle.secondary, emoji='🛒', custom_id=f'ticket_buying')
+    @discord.ui.button(label='Buying', style=discord.ButtonStyle.secondary, emoji='🛒', custom_id='ticket_buying')
     async def buying_option(self, interaction: discord.Interaction, button: discord.ui.Button):
         # Get user_id from ticket state since we can't store it in custom_id
         state = self.ticket_system.get_ticket_state(interaction.channel.id)
@@ -1679,6 +1679,10 @@ class ItemModal(discord.ui.Modal):
         else:
             clean_item_name = item_name.split('(')[0].strip()
 
+            # Get item type from the full name
+            type_match = re.search(r'\(([^)]*)\)', item_name)
+            final_item_type = type_match.group(1) if type_match else "Unknown"
+
         # Load obtainable items from data file
         try:
             obtainable_items = self.parent_view.ticket_system.data.get('obtainable', [])
@@ -1773,7 +1777,7 @@ class ItemModal(discord.ui.Modal):
             # Check if item is in exceptions list (protected items)
             exceptions = self.parent_view.ticket_system.data.get('exceptions', [])
             full_item_name = f"{clean_name} ({final_item_type})"
-            
+
             if full_item_name in exceptions:
                 error_embed = await self.parent_view.ticket_system.create_error_embed(
                     "<:ErrorLOGO:1387810170155040888> Protected Item",
@@ -2041,7 +2045,7 @@ class UsernameModal(discord.ui.Modal):
                     'creator_username': current_state.get('creator_username'),
                     'creator_display_name': current_state.get('creator_display_name')
                 }
-            
+
             self.ticket_system.save_ticket_state(interaction.channel.id, self.parent_view.user_id, {
                 'current_step': 'account_confirmation',
                 'roblox_user_data': roblox_user_data,
@@ -2292,26 +2296,26 @@ class WaitingPeriodView(discord.ui.View):
         self.user_id = user_id
         self.end_timestamp = end_timestamp
         self.countdown_task = None
-        
+
         # Start countdown if we have an end timestamp
         if self.end_timestamp:
             self.start_countdown_task()
-    
+
     def start_countdown_task(self):
         """Start the countdown task that updates every second"""
         if self.countdown_task:
             self.countdown_task.cancel()
         self.countdown_task = asyncio.create_task(self._countdown_loop())
-    
+
     async def _countdown_loop(self):
         """Countdown loop that updates every second and saves state"""
         import time
-        
+
         try:
             while True:
                 current_time = int(time.time())
                 time_remaining = self.end_timestamp - current_time
-                
+
                 # Save current state every second
                 if hasattr(self, '_last_channel'):
                     self.ticket_system.save_ticket_state(self._last_channel.id, self.user.id, {
@@ -2323,7 +2327,7 @@ class WaitingPeriodView(discord.ui.View):
                         'user_id': self.user_id,
                         'last_update': current_time
                     })
-                
+
                 if time_remaining <= 0:
                     # Time is up! Convert to transaction ready
                     if hasattr(self, '_last_message') and hasattr(self, '_last_channel'):
@@ -2331,19 +2335,19 @@ class WaitingPeriodView(discord.ui.View):
                         transaction_embed = await self.ticket_system.create_group_transaction_embed(
                             self.user, self.items_list, self.total_robux, self.roblox_username, self.user_id
                         )
-                        
+
                         # Create new view for transaction
                         view = GroupTransactionView(
                             self.ticket_system, self.user, self.items_list,
                             self.total_robux, self.roblox_username
                         )
-                        
+
                         # Update message and ping support
                         await self._last_message.edit(embed=transaction_embed, view=view)
                         content = f"{self.user.mention} <@&1300798850788757564>"
                         await self._last_channel.send(content=content)
                     break
-                
+
                 # Update embed with new countdown
                 if hasattr(self, '_last_message'):
                     try:
@@ -2356,14 +2360,14 @@ class WaitingPeriodView(discord.ui.View):
                         break
                     except Exception as e:
                         print(f"Error updating countdown: {e}")
-                
+
                 await asyncio.sleep(1)  # Update every second
-                
+
         except asyncio.CancelledError:
             pass
         except Exception as e:
             print(f"Error in countdown loop: {e}")
-    
+
     def set_message_reference(self, message, channel):
         """Set reference to the message and channel for updates"""
         self._last_message = message
@@ -2459,7 +2463,7 @@ class GroupTransactionView(discord.ui.View):
 
         # Use the new helper method to safely get ticket creator
         target_user = await self.ticket_system.get_ticket_creator(interaction.channel.id)
-        
+
         if target_user is None:
             # Fallback: try to get user from state data
             user_id = state.get('user_id')
@@ -2469,7 +2473,7 @@ class GroupTransactionView(discord.ui.View):
                 error_msg += f" (Username: {creator_username})"
             if user_id:
                 error_msg += f" (ID: {user_id})"
-                
+
             await interaction.response.send_message(error_msg, ephemeral=True)
             return
 
@@ -2514,12 +2518,12 @@ class GroupTransactionView(discord.ui.View):
         if not state:
             await interaction.response.send_message("This ticket is no longer valid!", ephemeral=True)
             return
-            
+
         items_list = state.get('items_list', [])
         if not items_list:
             await interaction.response.send_message("No items found in this ticket!", ephemeral=True)
             return
-            
+
         info_embed = await self.ticket_system.create_sell_info_embed(items_list)
         await interaction.response.send_message(embed=info_embed, ephemeral=True)
 
@@ -2555,7 +2559,7 @@ class RefuseReasonModal(discord.ui.Modal):
                     if hasattr(view, 'ticket_system'):
                         ticket_system = view.ticket_system
                         break
-                
+
                 if ticket_system:
                     target_user = ticket_system.get_ticket_creator(interaction.channel.id)
             except Exception as e:
@@ -2580,7 +2584,7 @@ class RefuseReasonModal(discord.ui.Modal):
                     if hasattr(view, 'ticket_system'):
                         ticket_system = view.ticket_system
                         break
-                
+
                 if ticket_system:
                     state = ticket_system.get_ticket_state(interaction.channel.id)
                     creator_username = state.get('creator_username') if state else None
@@ -2636,7 +2640,7 @@ class AcceptTransactionView(discord.ui.View):
                 error_msg += f" (Username: {creator_username})"
             if user_id:
                 error_msg += f" (ID: {user_id})"
-                
+
             await interaction.response.send_message(error_msg, ephemeral=True)
             return
 
