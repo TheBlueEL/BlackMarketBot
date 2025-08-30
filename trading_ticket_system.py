@@ -10,6 +10,11 @@ class TradingTicketSystem:
         self.bot = bot
         self.data_file = 'trading_ticket_data.json'
         self.monitoring_tasks = {}  # Store monitoring tasks
+        self.channel_types = {
+            'default': '𝐓𝐢𝐜𝐤𝐞𝐭',
+            'selling': '𝐒𝐞𝐥𝐥',
+            'buying': '𝐁𝐮𝐲'
+        }
         self.special_dict = {
             # Minuscules
             "a": "𝐚", "b": "𝐛", "c": "𝐜", "d": "𝐝", "e": "𝐞",
@@ -825,6 +830,15 @@ class TradingTicketSystem:
             converted += self.special_dict.get(char, char)
         return converted
 
+    async def update_channel_type(self, channel, user, channel_type):
+        """Update channel name based on ticket type"""
+        username_special = self.convert_to_special_font(user.name.lower())
+        new_channel_name = f"『🎟️』{self.channel_types[channel_type]}・{username_special}"
+        try:
+            await channel.edit(name=new_channel_name)
+        except Exception as e:
+            print(f"Error updating channel name: {e}")
+
     async def create_error_embed(self, title, description):
         """Create error embed for various error messages"""
         embed = discord.Embed(
@@ -1064,7 +1078,7 @@ class TicketPanelView(discord.ui.View):
 
         # Create channel with special font
         username_special = self.ticket_system.convert_to_special_font(interaction.user.name.lower())
-        channel_name = f"『🎟️』𝐓𝐢𝐜𝐤𝐞𝐭・{username_special}"
+        channel_name = f"『🎟️』{self.ticket_system.channel_types['default']}・{username_special}"
         ticket_channel = await guild.create_text_channel(
             name=channel_name,
             overwrites=overwrites,
@@ -1094,6 +1108,9 @@ class TicketOptionsView(discord.ui.View):
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
 
+        # Update channel name to selling type
+        await self.ticket_system.update_channel_type(interaction.channel, interaction.user, 'selling')
+
         # Create selling embed
         selling_embed = await self.ticket_system.create_selling_embed(interaction.user)
 
@@ -1114,6 +1131,9 @@ class TicketOptionsView(discord.ui.View):
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
+
+        # Update channel name to buying type
+        await self.ticket_system.update_channel_type(interaction.channel, interaction.user, 'buying')
 
         await interaction.response.send_message("Buying option will be implemented soon! Please choose Selling for now.", ephemeral=True)
 
@@ -1200,6 +1220,9 @@ class SellingFormView(discord.ui.View):
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("Only the ticket creator can use this button!", ephemeral=True)
             return
+
+        # Reset channel name to default when going back to options
+        await self.ticket_system.update_channel_type(interaction.channel, interaction.user, 'default')
 
         # Go back to ticket options
         options_embed = await self.ticket_system.create_ticket_options_embed(interaction.user)
