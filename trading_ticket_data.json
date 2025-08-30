@@ -9,20 +9,38 @@
     "1383581749006827623": 1410798551759454258,
     "459039275116265492": 1411016705291059261,
     "291595735118512129": 1411048374781739019,
-    "723144097015136296": 1411159274112942199
+    "723144097015136296": 1411161701759324332
   },
   "obtainable": [
     "Concept"
   ],
   "ticket_states": {
-    "1411159274112942199": {
+    "1411161701759324332": {
       "user_id": 723144097015136296,
       "channel_type": "selling",
-      "current_step": "selling",
-      "items_list": [],
-      "payment_method": null,
-      "roblox_user_data": null,
-      "monitoring_data": null
+      "current_step": "group_monitoring",
+      "items_list": [
+        {
+          "name": "Torpedo",
+          "quantity": 1,
+          "status": "Clean",
+          "value": 48000000,
+          "type": "Vehicle"
+        }
+      ],
+      "payment_method": "group",
+      "roblox_user_data": {
+        "id": 1289440978,
+        "name": "ThisBlue80",
+        "displayName": "BlueEL",
+        "avatar_url": "https://tr.rbxcdn.com/30DAY-AvatarHeadshot-0E0549691AD486790A96ED4D3EDE80D3-Png/420/420/AvatarHeadshot/Png/noFilter"
+      },
+      "monitoring_data": {
+        "user_id": 1289440978,
+        "group_id": 34785441,
+        "total_robux": 3840,
+        "roblox_username": "ThisBlue80"
+      }
     }
   }
 }
