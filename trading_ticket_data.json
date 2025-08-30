@@ -20,30 +20,5 @@
     "Brulee (Vehicle)",
     "Roadster (Vehicle)"
   ],
-  "ticket_states": {
-    "1411363298695450705": {
-      "user_id": 723144097015136296,
-      "channel_type": "selling",
-      "current_step": "account_confirmation",
-      "items_list": [
-        {
-          "name": "Beam Hybrid",
-          "quantity": 1,
-          "status": "Clean",
-          "value": 19000000,
-          "type": "Vehicle"
-        }
-      ],
-      "payment_method": "group",
-      "roblox_user_data": {
-        "id": 1289440978,
-        "name": "ThisBlue80",
-        "displayName": "BlueEL",
-        "avatar_url": "https://tr.rbxcdn.com/30DAY-AvatarHeadshot-0E0549691AD486790A96ED4D3EDE80D3-Png/420/420/AvatarHeadshot/Png/noFilter"
-      },
-      "monitoring_data": null,
-      "creator_username": "theblueel",
-      "creator_display_name": "TheBlueEL"
-    }
-  }
+  "ticket_states": {}
 }
