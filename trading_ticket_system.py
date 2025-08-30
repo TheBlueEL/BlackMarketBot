@@ -1384,8 +1384,8 @@ class ItemModal(discord.ui.Modal):
             await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
 
-        # Get value based on status
-        if status == "clean":
+        # Get value based on status (case insensitive comparison)
+        if status.lower() == "clean":
             value_key = 'Cash Value'
         else:  # dupe
             value_key = 'Duped Value'
