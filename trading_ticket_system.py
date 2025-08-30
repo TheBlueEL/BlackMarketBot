@@ -884,8 +884,23 @@ class TradingTicketSystem:
                 'items_list': [],
                 'payment_method': None,
                 'roblox_user_data': None,
-                'monitoring_data': None
+                'monitoring_data': None,
+                'creator_username': None,
+                'creator_display_name': None
             }
+
+        # Always ensure user_id is preserved
+        state_data['user_id'] = user_id
+        
+        # Save creator username and display name if not already saved
+        if 'creator_username' not in self.data['ticket_states'][channel_key] or not self.data['ticket_states'][channel_key]['creator_username']:
+            try:
+                user = self.bot.get_user(user_id)
+                if user:
+                    state_data['creator_username'] = user.name
+                    state_data['creator_display_name'] = user.display_name
+            except Exception as e:
+                print(f"Error saving creator info: {e}")
 
         # Update with new state data
         self.data['ticket_states'][channel_key].update(state_data)
@@ -895,6 +910,29 @@ class TradingTicketSystem:
         """Get ticket state"""
         channel_key = str(channel_id)
         return self.data['ticket_states'].get(channel_key, None)
+    
+    def get_ticket_creator(self, channel_id):
+        """Safely get the ticket creator user object"""
+        state = self.get_ticket_state(channel_id)
+        if not state:
+            return None
+            
+        user_id = state.get('user_id')
+        if not user_id:
+            return None
+            
+        # Try to get user from bot
+        user = self.bot.get_user(user_id)
+        if user:
+            return user
+            
+        # If not found, try to fetch from Discord API
+        try:
+            user = asyncio.create_task(self.bot.fetch_user(user_id))
+            return user
+        except Exception as e:
+            print(f"Error fetching user {user_id}: {e}")
+            return None
 
     def remove_ticket_state(self, channel_id):
         """Remove ticket state when ticket is closed"""
@@ -1245,10 +1283,12 @@ class TicketPanelView(discord.ui.View):
         self.ticket_system.data['active_tickets'][user_id] = ticket_channel.id
         self.ticket_system.save_data()
 
-        # Save initial ticket state
+        # Save initial ticket state with creator info
         self.ticket_system.save_ticket_state(ticket_channel.id, interaction.user.id, {
             'channel_type': 'default',
-            'current_step': 'options'
+            'current_step': 'options',
+            'creator_username': interaction.user.name,
+            'creator_display_name': interaction.user.display_name
         })
 
         # Send options embed in ticket channel
@@ -1993,11 +2033,20 @@ class UsernameModal(discord.ui.Modal):
                 'avatar_url': avatar_url
             }
 
-            # Save account confirmation state
+            # Save account confirmation state with creator info preserved
+            current_state = self.ticket_system.get_ticket_state(interaction.channel.id)
+            creator_info = {}
+            if current_state:
+                creator_info = {
+                    'creator_username': current_state.get('creator_username'),
+                    'creator_display_name': current_state.get('creator_display_name')
+                }
+            
             self.ticket_system.save_ticket_state(interaction.channel.id, self.parent_view.user_id, {
                 'current_step': 'account_confirmation',
                 'roblox_user_data': roblox_user_data,
-                'payment_method': self.method
+                'payment_method': self.method,
+                **creator_info
             })
 
             # Create account confirmation embed
@@ -2408,15 +2457,20 @@ class GroupTransactionView(discord.ui.View):
             await interaction.response.send_message("You don't have permission to accept transactions!", ephemeral=True)
             return
 
-        # Get user from ticket state if self.user is None (persistent view issue)
-        target_user = self.user
+        # Use the new helper method to safely get ticket creator
+        target_user = self.ticket_system.get_ticket_creator(interaction.channel.id)
+        
         if target_user is None:
+            # Fallback: try to get user from state data
             user_id = state.get('user_id')
+            creator_username = state.get('creator_username')
+            error_msg = f"Could not find the ticket creator!"
+            if creator_username:
+                error_msg += f" (Username: {creator_username})"
             if user_id:
-                target_user = interaction.client.get_user(user_id)
-
-        if target_user is None:
-            await interaction.response.send_message("Could not find the ticket creator!", ephemeral=True)
+                error_msg += f" (ID: {user_id})"
+                
+            await interaction.response.send_message(error_msg, ephemeral=True)
             return
 
         # Allow user to speak in the channel
@@ -2447,12 +2501,8 @@ class GroupTransactionView(discord.ui.View):
             await interaction.response.send_message("You don't have permission to refuse transactions!", ephemeral=True)
             return
 
-        # Get user from ticket state if self.user is None (persistent view issue)
-        target_user = self.user
-        if target_user is None:
-            user_id = state.get('user_id')
-            if user_id:
-                target_user = interaction.client.get_user(user_id)
+        # Use the new helper method to safely get ticket creator
+        target_user = self.ticket_system.get_ticket_creator(interaction.channel.id)
 
         modal = RefuseReasonModal(target_user, interaction.channel)
         await interaction.response.send_modal(modal)
@@ -2507,11 +2557,7 @@ class RefuseReasonModal(discord.ui.Modal):
                         break
                 
                 if ticket_system:
-                    state = ticket_system.get_ticket_state(interaction.channel.id)
-                    if state:
-                        user_id = state.get('user_id')
-                        if user_id:
-                            target_user = interaction.client.get_user(user_id)
+                    target_user = ticket_system.get_ticket_creator(interaction.channel.id)
             except Exception as e:
                 print(f"Error getting user from state: {e}")
 
@@ -2526,12 +2572,28 @@ class RefuseReasonModal(discord.ui.Modal):
             # Send DM to user if we have a valid user
             if target_user:
                 await target_user.send(embed=refuse_embed)
+                await interaction.followup.send(f"Refusal reason sent to {target_user.mention}. Channel will be deleted in 5 seconds.", ephemeral=True)
             else:
-                await interaction.followup.send("Could not find user to send DM. Transaction was refused.", ephemeral=True)
+                # Get username from state for better error message
+                ticket_system = None
+                for view in interaction.client._connection._view_store._views.values():
+                    if hasattr(view, 'ticket_system'):
+                        ticket_system = view.ticket_system
+                        break
+                
+                if ticket_system:
+                    state = ticket_system.get_ticket_state(interaction.channel.id)
+                    creator_username = state.get('creator_username') if state else None
+                    if creator_username:
+                        await interaction.followup.send(f"Could not find user to send DM (Username: {creator_username}). Transaction was refused. Channel will be deleted.", ephemeral=True)
+                    else:
+                        await interaction.followup.send("Could not find user to send DM. Transaction was refused. Channel will be deleted.", ephemeral=True)
+                else:
+                    await interaction.followup.send("Could not find user to send DM. Transaction was refused. Channel will be deleted.", ephemeral=True)
         except discord.Forbidden:
-            await interaction.followup.send("Could not send DM to user, but transaction was refused.", ephemeral=True)
+            await interaction.followup.send("Could not send DM to user, but transaction was refused. Channel will be deleted.", ephemeral=True)
         except Exception as e:
-            await interaction.followup.send(f"Error sending DM: {str(e)}. Transaction was refused.", ephemeral=True)
+            await interaction.followup.send(f"Error sending DM: {str(e)}. Transaction was refused. Channel will be deleted.", ephemeral=True)
 
         # Delete the channel after a short delay
         await asyncio.sleep(5)
@@ -2561,17 +2623,21 @@ class AcceptTransactionView(discord.ui.View):
             await interaction.response.send_message("You don't have permission to accept transactions!", ephemeral=True)
             return
 
-        # Get user from ticket state if self.user is None (persistent view issue)
-        target_user = self.user
-        target_channel = self.channel
-        if target_user is None or target_channel is None:
-            user_id = state.get('user_id')
-            if user_id:
-                target_user = interaction.client.get_user(user_id)
-            target_channel = interaction.channel
+        # Use the new helper method to safely get ticket creator
+        target_user = self.ticket_system.get_ticket_creator(interaction.channel.id)
+        target_channel = self.channel or interaction.channel
 
         if target_user is None:
-            await interaction.response.send_message("Could not find the ticket creator!", ephemeral=True)
+            # Provide more detailed error with saved creator info
+            user_id = state.get('user_id')
+            creator_username = state.get('creator_username')
+            error_msg = f"Could not find the ticket creator!"
+            if creator_username:
+                error_msg += f" (Username: {creator_username})"
+            if user_id:
+                error_msg += f" (ID: {user_id})"
+                
+            await interaction.response.send_message(error_msg, ephemeral=True)
             return
 
         # Allow user to speak in the channel
@@ -2602,15 +2668,9 @@ class AcceptTransactionView(discord.ui.View):
             await interaction.response.send_message("You don't have permission to refuse transactions!", ephemeral=True)
             return
 
-        # Get user from ticket state if self.user is None (persistent view issue)
-        target_user = self.user
-        target_channel = self.channel
-        if target_user is None:
-            user_id = state.get('user_id')
-            if user_id:
-                target_user = interaction.client.get_user(user_id)
-        if target_channel is None:
-            target_channel = interaction.channel
+        # Use the new helper method to safely get ticket creator
+        target_user = self.ticket_system.get_ticket_creator(interaction.channel.id)
+        target_channel = self.channel or interaction.channel
 
         modal = RefuseReasonModal(target_user, target_channel)
         await interaction.response.send_modal(modal)
