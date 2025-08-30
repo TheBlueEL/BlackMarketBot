@@ -2408,15 +2408,26 @@ class GroupTransactionView(discord.ui.View):
             await interaction.response.send_message("You don't have permission to accept transactions!", ephemeral=True)
             return
 
+        # Get user from ticket state if self.user is None (persistent view issue)
+        target_user = self.user
+        if target_user is None:
+            user_id = state.get('user_id')
+            if user_id:
+                target_user = interaction.client.get_user(user_id)
+
+        if target_user is None:
+            await interaction.response.send_message("Could not find the ticket creator!", ephemeral=True)
+            return
+
         # Allow user to speak in the channel
         overwrites = interaction.channel.overwrites
-        if self.user in overwrites:
-            overwrites[self.user].send_messages = True
+        if target_user in overwrites:
+            overwrites[target_user].send_messages = True
             await interaction.channel.edit(overwrites=overwrites)
 
         # Send acceptance embed with user ping
-        accept_embed = await self.ticket_system.create_selling_accepted_embed(self.user, interaction.channel.id)
-        await interaction.response.send_message(content=self.user.mention, embed=accept_embed)
+        accept_embed = await self.ticket_system.create_selling_accepted_embed(target_user, interaction.channel.id)
+        await interaction.response.send_message(content=target_user.mention, embed=accept_embed)
 
         # Disable the buttons
         self.clear_items()
@@ -2436,7 +2447,14 @@ class GroupTransactionView(discord.ui.View):
             await interaction.response.send_message("You don't have permission to refuse transactions!", ephemeral=True)
             return
 
-        modal = RefuseReasonModal(self.user, interaction.channel)
+        # Get user from ticket state if self.user is None (persistent view issue)
+        target_user = self.user
+        if target_user is None:
+            user_id = state.get('user_id')
+            if user_id:
+                target_user = interaction.client.get_user(user_id)
+
+        modal = RefuseReasonModal(target_user, interaction.channel)
         await interaction.response.send_modal(modal)
 
     @discord.ui.button(label='Information', emoji='<:InformationLOGO:1410970300841066496>', style=discord.ButtonStyle.secondary, custom_id='sell_info_group_persistent')
@@ -2543,15 +2561,28 @@ class AcceptTransactionView(discord.ui.View):
             await interaction.response.send_message("You don't have permission to accept transactions!", ephemeral=True)
             return
 
+        # Get user from ticket state if self.user is None (persistent view issue)
+        target_user = self.user
+        target_channel = self.channel
+        if target_user is None or target_channel is None:
+            user_id = state.get('user_id')
+            if user_id:
+                target_user = interaction.client.get_user(user_id)
+            target_channel = interaction.channel
+
+        if target_user is None:
+            await interaction.response.send_message("Could not find the ticket creator!", ephemeral=True)
+            return
+
         # Allow user to speak in the channel
-        overwrites = self.channel.overwrites
-        if self.user in overwrites:
-            overwrites[self.user].send_messages = True
-            await self.channel.edit(overwrites=overwrites)
+        overwrites = target_channel.overwrites
+        if target_user in overwrites:
+            overwrites[target_user].send_messages = True
+            await target_channel.edit(overwrites=overwrites)
 
         # Send acceptance embed with user ping
-        accept_embed = await self.ticket_system.create_selling_accepted_embed(self.user, self.channel.id)
-        await interaction.response.send_message(content=self.user.mention, embed=accept_embed)
+        accept_embed = await self.ticket_system.create_selling_accepted_embed(target_user, target_channel.id)
+        await interaction.response.send_message(content=target_user.mention, embed=accept_embed)
 
         # Disable the buttons
         self.clear_items()
@@ -2571,7 +2602,17 @@ class AcceptTransactionView(discord.ui.View):
             await interaction.response.send_message("You don't have permission to refuse transactions!", ephemeral=True)
             return
 
-        modal = RefuseReasonModal(self.user, self.channel)
+        # Get user from ticket state if self.user is None (persistent view issue)
+        target_user = self.user
+        target_channel = self.channel
+        if target_user is None:
+            user_id = state.get('user_id')
+            if user_id:
+                target_user = interaction.client.get_user(user_id)
+        if target_channel is None:
+            target_channel = interaction.channel
+
+        modal = RefuseReasonModal(target_user, target_channel)
         await interaction.response.send_modal(modal)
 
     @discord.ui.button(label='Information', style=discord.ButtonStyle.secondary, emoji='<:InformationLOGO:1410970300841066496>', custom_id='gamepass_sell_info_persistent')
